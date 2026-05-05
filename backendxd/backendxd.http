@@ -1,0 +1,6 @@
+@backendxd_HostAddress = http://localhost:5059
+
+GET {{backendxd_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
