@@ -84,7 +84,7 @@ namespace backendxd.Controllers
                 {
                     Username = pending.username,
                     Email = pending.email,
-                    PasswordHash = pending.password, //  BCrypt позже надо будет
+                    Password = pending.password, //  BCrypt позже надо будет
                     SubStart = 0,
                     SubEnd = 0
                 };

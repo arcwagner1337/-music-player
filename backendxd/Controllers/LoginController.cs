@@ -1,65 +1,65 @@
-﻿using Microsoft.AspNetCore.Identity.Data;
+﻿using backendxd.Data;
+using backendxd.DTOS;
+using backendxd.Services;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
-
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using backendxd.DTOS;
 using LoginRequest = backendxd.DTOS.LoginRequest;
 
 namespace backendxd.Controllers
 {
     [ApiController]
     [Route("api/login")] 
-    public class LoginController : Controller
+    public class LoginController : ControllerBase
     {
         private readonly IConfiguration _config;
+        private readonly AppDbContext _context;
+        private readonly GenerateJWT _jwtService;
         // потом тут будет DBContext
 
-        public LoginController(IConfiguration config)
+        public LoginController(IConfiguration config, AppDbContext context, GenerateJWT jwtService)
         {
             _config = config;
+            _context = context;
+            _jwtService = jwtService;
         }
 
-        [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest request)
+        [HttpPost] // Будет доступен по POST /api/login
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-           
-            // потом будет: var user = _context.Users.FirstOrDefault(u => u.Username == request.Username);
-            if (request.Username == "Arcwagner" && request.Password == "1337")
+            // 1. Ищем юзера (по нику или почте)
+            // Используем маленькие буквы полей, как в твоих моделях (username, password)
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Username == request.Username || u.Email == request.Username);
+
+            if (user == null)
             {
-                var claims = new[]
-                {
-                new Claim(ClaimTypes.Name, request.Username),
-                new Claim("issuer", "void_core")
-            };
-
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["JWT_SECRET"] ?? "default_secret_key_32_chars!!"));
-                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-                var token = new JwtSecurityToken(
-                    issuer: "void_core",
-                    claims: claims,
-                    expires: DateTime.Now.AddDays(7),
-                    signingCredentials: creds
-                );
-
-                var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-
-               
-                Response.Cookies.Append("auth_token", tokenString, new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true, 
-                    SameSite = SameSiteMode.Lax,
-                    MaxAge = TimeSpan.FromDays(7)
-                });
-
-                return Ok(new { status = "success", username = request.Username });
+                return Unauthorized(new { error = "USER_NOT_FOUND" });
             }
 
-            return Unauthorized(new { error = "Unauthorized" });
+            // 2. Проверяем пароль
+            if (user.Password != request.Password)
+            {
+                return Unauthorized(new { error = "WRONG_PASSWORD" });
+            }
+
+            // 3. Генерируем токен через твой сервис
+            var token = _jwtService.GenerateJwtToken(user.Username);
+
+            // 4. Ставим куку
+            Response.Cookies.Append("auth_token", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true, 
+                SameSite = SameSiteMode.Lax,
+                MaxAge = TimeSpan.FromDays(7)
+            });
+
+            return Ok(new { status = "success", username = user.Username });
         }
 
     }

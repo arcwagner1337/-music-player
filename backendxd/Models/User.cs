@@ -14,7 +14,7 @@ namespace backendxd.Models
         public string Username { get; set; } = string.Empty;
 
         [Column("password")]
-        public string PasswordHash { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
 
         [Column("email")]
         public string Email { get; set; } = string.Empty;
