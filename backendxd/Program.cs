@@ -3,7 +3,6 @@
 using backendxd.Data;
 using backendxd.Services;
 using Microsoft.EntityFrameworkCore;
-Environment.SetEnvironmentVariable("SLAVA_UKRAINI", "1");
 
 var builder = WebApplication.CreateBuilder(args);
 
