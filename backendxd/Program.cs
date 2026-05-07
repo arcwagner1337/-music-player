@@ -4,13 +4,16 @@ using backendxd.Data;
 using backendxd.Services;
 using Microsoft.EntityFrameworkCore;
 
-var builder = WebApplication.CreateBuilder(args);
 
+var builder = WebApplication.CreateBuilder(args);
+Environment.SetEnvironmentVariable("SLAVA_UKRAINI", "1");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("NeonDB")));
 builder.Services.AddScoped<GenerateJWT>();
 builder.Services.AddScoped<mail>();
 builder.Services.AddScoped<MusicService>();
+builder.Services.AddScoped<MusicService2>();
+builder.Services.AddMemoryCache();
 
 // Add services to the container.
 
