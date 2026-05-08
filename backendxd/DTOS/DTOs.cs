@@ -4,11 +4,26 @@
     public record RegisterRequest(string Username, string Email, string Password);
     public record VerifyRequest(string email, string code);
     public record AuthResponse(string Status, string Username);
-    //public record TrackDto(string Id, string Title, string Artist, string CoverUrl, string Url);
 
-    public record TrackDto(string Id, string Title, string Author, string Genre, string ThumbUrl, string Url);
 
-    public record TrackDto2(string Title, string Author, string Url, string CleanArtist, string CleanTitle);
+    public record TrackDto(string Id, string Title, string Author, string Genre, string ThumbUrl, string Url);//убрать потом
+
+    public record TrackDto2(string Title, string Author, string Url, string CleanArtist, string CleanTitle, string ImageUrl);
+
+    public record ArtistDto(string Name, string Url, string ImageUrl, string Bio, string Id);
+
+    public record SearchResultDto(
+    List<ArtistDto> Artists,
+    List<TrackDto2> Tracks,
+    List<AlbumDto> TopAlbums);
+
+    public record AlbumDto(
+    string Name,
+    string ImageUrl,
+    string Id,
+    string Url,
+    int? Playcount
+);
 
 
 

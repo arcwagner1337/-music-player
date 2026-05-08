@@ -16,48 +16,87 @@ namespace backendxd.Controllers
             _musicService = musicService;
         }
 
-        //[HttpGet("search")]
-        //public async Task<IActionResult> Search([FromQuery] string q)
-        //{
-        //    if (string.IsNullOrWhiteSpace(q)) return BadRequest("Query is empty");
 
-        //    var results = await _musicService.SearchAsync(q);
-        //    return Ok(results);
-        //}
+        [HttpGet("stream")]
+        
+        public async Task<IActionResult> GetStream(string artist, string track)
+        {
+            var streamUrl = await _musicService.GetFullStreamByTrackInfoAsync(artist, track);
 
-        //[HttpGet("stream")]
-        //public async Task<IActionResult> GetStream([FromQuery] string url)
-        //{
-        //    if (string.IsNullOrEmpty(url)) return BadRequest("Url is empty");
+            if (string.IsNullOrEmpty(streamUrl))
+                return NotFound("Не удалось найти аудио-поток");
 
-        //    try
-        //    {
-        //        var streamUrl = await _musicService.GetAudioStreamUrl(url);
-        //        return Ok(new { streamUrl });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new { error = ex.Message });
-        //    }
-        //}
+            
+            return Ok(new { url = streamUrl });
+        }
 
+        [HttpGet("search")]
+        public async Task<ActionResult<SearchResultDto>> Search([FromQuery] string query)
+        {
+            
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return BadRequest("Search query cannot be empty");
+            }
 
+            try
+            {
+                
+                var results = await _musicService.SmartSearchAsync2(query);
+
+                
+                if (results.Artists.Count == 0 && results.Tracks.Count == 0)
+                {
+                    return NotFound("No artists or tracks found for this query");
+                }
+
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                
+                Console.WriteLine($"Search Error: {ex.Message}");
+                return StatusCode(500, "Internal server error during search");
+            }
+        }
+
+        [HttpGet("album/{id}")]
+        public async Task<ActionResult<List<TrackDto2>>> GetAlbumTracks(long id)
+        {
+            var tracks = await _musicService.GetAlbumTracksAsync(id);
+
+            if (tracks == null || !tracks.Any())
+                return NotFound("Альбом не найден или пуст");
+
+            return Ok(tracks);
+        }
+
+        [HttpGet("artist/{id}/albums")]
+        public async Task<ActionResult<List<AlbumDto>>> GetArtistAlbums(long id)
+        {
+            var albums = await _musicService.GetArtistAlbumsAsync(id);
+
+            if (albums == null || !albums.Any())
+                return NotFound("Альбомы не найдены");
+
+            return Ok(albums);
+        }
 
 
 
         [HttpGet("GetSimilarTrack")]
         public async Task<ActionResult<TrackDto2>> GetRecommendation([FromQuery] string artist, [FromQuery] string track)
         {
-            // 1. Вызываем наш "умный" метод
+            
             var recommendedTrack = await _musicService.GetSimilarTrackAsync(artist, track);
 
-            // 2. Если Last.fm ничего не нашел или YouTube подвел
+            
             if (recommendedTrack == null)
             {
                 return NotFound("Не удалось найти похожий трек");
             }
 
-            // 3. Возвращаем 200 OK с нашей дтошкой
+            
             return Ok(recommendedTrack);
         }
 

@@ -145,31 +145,31 @@ namespace backendxd.Services
         }
 
 
-        public async Task<string> GetAudioStreamUrl(string videoId)
-        {
-            try
-            {
-                var streamingData = await _ytm.GetStreamingDataAsync(videoId);
+        //public async Task<string> GetAudioStreamUrl(string videoId)
+        //{
+        //    try
+        //    {
+        //        var streamingData = await _ytm.GetStreamingDataAsync(videoId);
 
-                if (streamingData?.StreamInfo == null) return string.Empty;
+        //        if (streamingData?.StreamInfo == null) return string.Empty;
 
-                // Берем первый элемент из коллекции StreamInfo, у которого есть Url
-                // Раз IntelliSense видит Length и ElementAt, значит это массив/список
-                var stream = streamingData.StreamInfo.FirstOrDefault(s => !string.IsNullOrEmpty(s.Url));
+        //        // Берем первый элемент из коллекции StreamInfo, у которого есть Url
+        //        // Раз IntelliSense видит Length и ElementAt, значит это массив/список
+        //        var stream = streamingData.StreamInfo.FirstOrDefault(s => !string.IsNullOrEmpty(s.Url));
 
-                return stream?.Url ?? string.Empty;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[DEBUG] Ошибка стрима: {ex.Message}");
-                return string.Empty;
-            }
+        //        return stream?.Url ?? string.Empty;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"[DEBUG] Ошибка стрима: {ex.Message}");
+        //        return string.Empty;
+        //    }
 
 
-            //var manifest = await _yt.Videos.Streams.GetManifestAsync(videoId);
-            //var streamInfo = manifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-            //return streamInfo.Url;
-        }
+        //    //var manifest = await _yt.Videos.Streams.GetManifestAsync(videoId);
+        //    //var streamInfo = manifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+        //    //return streamInfo.Url;
+        //}
 
 
         public async Task<List<TrackDto>> GetNextTrackAsync(string sourceUrl, int count = 10)
