@@ -22,10 +22,10 @@ namespace backendxd.Services
         private readonly YoutubeClient _yt = new YoutubeClient();
 
 
-        public async Task<SearchResultDto> SmartSearchAsync2(string query)
+        public async Task<object> SmartSearchAsync2(string query)
         {
             using var client = new HttpClient();
-            
+
             var dzResponse = await client.GetFromJsonAsync<JsonElement>($"https://api.deezer.com/search?q={Uri.EscapeDataString(query)}&limit=20");
 
             var artists = new List<ArtistDto>();
@@ -37,12 +37,12 @@ namespace backendxd.Services
 
                 var items = data.EnumerateArray().ToList();
 
-                
+
                 var uniqueArtists = items
                     .Select(item => item.GetProperty("artist"))
-                    .GroupBy(a => a.GetProperty("id").GetInt64()) 
+                    .GroupBy(a => a.GetProperty("id").GetInt64())
                     .Select(g => g.First())
-                    .Take(5); 
+                    .Take(3);
 
                 var sortedArtists = uniqueArtists.OrderByDescending(a =>
                 a.GetProperty("name").GetString().Equals(query, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
@@ -63,22 +63,22 @@ namespace backendxd.Services
                 var sortedItems = items.OrderByDescending(item =>
                     item.GetProperty("artist").GetProperty("name").GetString()
                     .Equals(query, StringComparison.OrdinalIgnoreCase) ? 1 : 0
-                    ).Take(10);
+                    );
 
-                
-                foreach (var item in sortedItems.Take(10))
+
+                foreach (var item in sortedItems)
                 {
                     tracks.Add(new TrackDto2(
                         item.GetProperty("title").GetString(),
                         item.GetProperty("artist").GetProperty("name").GetString(),
-                        "", 
+                        "",
                         item.GetProperty("artist").GetProperty("name").GetString(),
                         item.GetProperty("title").GetString(),
                         item.GetProperty("album").GetProperty("cover_big").GetString()
                     ));
                 }
 
-               
+
                 var uniqueAlbums = items
                     .GroupBy(x => x.GetProperty("album").GetProperty("id").GetInt64())
                     .Take(6);
@@ -96,13 +96,26 @@ namespace backendxd.Services
                 }
             }
 
-            return new SearchResultDto(artists, tracks, topAlbums);
+            bool isArtistSearch = artists.Any(a => a.Name.Equals(query, StringComparison.OrdinalIgnoreCase));
+            
+
+            if (isArtistSearch)
+            {
+                artists = artists.OrderByDescending(a => a.Name.Equals(query, StringComparison.OrdinalIgnoreCase)).ToList();
+                return new SearchResultDtoPreferArtists(artists, tracks, topAlbums);
+            }
+            else
+            {
+                tracks = tracks.OrderByDescending(t => t.Title.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+                return new SearchResultDtoPreferTracks(tracks, topAlbums, artists);
+            }
+
         }
 
         public async Task<List<TrackDto2>> GetAlbumTracksAsync(long albumId)
         {
             using var client = new HttpClient();
-            
+
             var response = await client.GetFromJsonAsync<JsonElement>($"https://api.deezer.com/album/{albumId}");
 
             var tracks = new List<TrackDto2>();
@@ -118,10 +131,10 @@ namespace backendxd.Services
                     tracks.Add(new TrackDto2(
                         item.GetProperty("title").GetString(),
                         artistName,
-                        "", 
+                        "",
                         artistName,
                         item.GetProperty("title").GetString(),
-                        albumCover 
+                        albumCover
                     ));
                 }
             }
@@ -133,7 +146,7 @@ namespace backendxd.Services
         public async Task<List<AlbumDto>> GetArtistAlbumsAsync(long artistId)
         {
             using var client = new HttpClient();
-            
+
             var response = await client.GetFromJsonAsync<JsonElement>($"https://api.deezer.com/artist/{artistId}/albums");
 
             var albums = new List<AlbumDto>();
@@ -146,8 +159,8 @@ namespace backendxd.Services
                         alb.GetProperty("title").GetString(),
                         alb.GetProperty("cover_xl").GetString(),
                         alb.GetProperty("id").GetInt64().ToString(),
-                        "", 
-                        0   
+                        "",
+                        0
                     ));
                 }
             }
@@ -161,22 +174,22 @@ namespace backendxd.Services
 
         private async Task<TrackDto2?> SearchOnYouTubeAsync(string artist, string track)
         {
-            
+
             var searchQuery = $"\"{artist}\" {track} official audio";
             var searchResult = await _yt.Search.GetVideosAsync(searchQuery).CollectAsync(10);
 
             if (searchResult.Count > 0)
             {
-                
+
                 string[] stopWords = { "live", "concert", "remix", "cover", "festival", "tour" };
 
                 var video = searchResult.OrderByDescending(v =>
                 {
-                    
+
                     int score = 0;
-                    
+
                     if (v.Author.ChannelTitle.Equals($"{artist} - Topic", StringComparison.OrdinalIgnoreCase)) score += 10;
-                    
+
                     if (v.Title.Contains("Official Audio", StringComparison.OrdinalIgnoreCase)) score += 5;
                     return score;
                 }).FirstOrDefault(v =>
@@ -211,13 +224,13 @@ namespace backendxd.Services
         {
             try
             {
-                
+
                 var ytTrack = await SearchOnYouTubeAsync(artist, track);
 
                 if (ytTrack == null || string.IsNullOrEmpty(ytTrack.Url))
                     return string.Empty;
 
-                
+
                 return await GetAudioStreamUrl(ytTrack.Url);
             }
             catch (Exception ex)
@@ -245,7 +258,7 @@ namespace backendxd.Services
 
             try
             {
-                
+
                 string url = $"http://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}&api_key={apiKey}&format=json&limit=10";
 
                 var response = await client.GetFromJsonAsync<JsonElement>(url);
@@ -256,18 +269,18 @@ namespace backendxd.Services
 
                     if (trackList.Count > 0)
                     {
-                        
+
                         var random = new Random();
                         var selected = trackList[random.Next(0, Math.Min(5, trackList.Count))];
 
                         string nextArtist = selected.GetProperty("artist").GetProperty("name").GetString();
                         string nextTrack = selected.GetProperty("name").GetString();
 
-                        
+
                         string dzSearchUrl = $"https://api.deezer.com/search?q=artist:\"{Uri.EscapeDataString(nextArtist)}\" track:\"{Uri.EscapeDataString(nextTrack)}\"&limit=1";
                         var dzResponse = await client.GetFromJsonAsync<JsonElement>(dzSearchUrl);
 
-                        string imageUrl = ""; 
+                        string imageUrl = "";
 
                         if (dzResponse.TryGetProperty("data", out var data) && data.GetArrayLength() > 0)
                         {
@@ -275,11 +288,11 @@ namespace backendxd.Services
                             imageUrl = firstMatch.GetProperty("album").GetProperty("cover_big").GetString();
                         }
 
-                   
+
                         return new TrackDto2(
                             nextTrack,
                             nextArtist,
-                            "", 
+                            "",
                             nextArtist,
                             nextTrack,
                             imageUrl
@@ -292,7 +305,7 @@ namespace backendxd.Services
                 Console.WriteLine($"Ошибка рекомендаций: {ex.Message}");
             }
 
-            return null; 
+            return null;
         }
 
     }

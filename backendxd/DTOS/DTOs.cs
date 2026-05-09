@@ -12,10 +12,18 @@
 
     public record ArtistDto(string Name, string Url, string ImageUrl, string Bio, string Id);
 
-    public record SearchResultDto(
+    public interface ISearchRes { }
+    public record SearchResultDtoPreferArtists(
     List<ArtistDto> Artists,
     List<TrackDto2> Tracks,
-    List<AlbumDto> TopAlbums);
+    List<AlbumDto> TopAlbums
+    ) : ISearchRes;
+
+    public record SearchResultDtoPreferTracks(
+    List<TrackDto2> Tracks,
+    List<AlbumDto> TopAlbums,
+    List<ArtistDto> Artists
+    ) : ISearchRes;
 
     public record AlbumDto(
     string Name,

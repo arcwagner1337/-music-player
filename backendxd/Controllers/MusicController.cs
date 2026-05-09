@@ -31,7 +31,7 @@ namespace backendxd.Controllers
         }
 
         [HttpGet("search")]
-        public async Task<ActionResult<SearchResultDto>> Search([FromQuery] string query)
+        public async Task<ActionResult<object>> Search([FromQuery] string query)
         {
             
             if (string.IsNullOrWhiteSpace(query))
@@ -41,8 +41,8 @@ namespace backendxd.Controllers
 
             try
             {
-                
-                var results = await _musicService.SmartSearchAsync2(query);
+
+                dynamic results = await _musicService.SmartSearchAsync2(query);
 
                 
                 if (results.Artists.Count == 0 && results.Tracks.Count == 0)
