@@ -11,7 +11,3 @@
 *.log
 *.tmp
 appsettings.json
-
-
-
-/.vs

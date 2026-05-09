@@ -1,0 +1,59 @@
+﻿<Page x:Class="MusicAppFront.Views.Pages.SearchPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:MusicAppFront.Views.Pages"
+      mc:Ignorable="d" 
+      Title="SearchPage">
+
+    <ScrollViewer VerticalScrollBarVisibility="Hidden">
+        <StackPanel Margin="30,20">
+            <TextBlock Text="Результаты поиска:" 
+                       Foreground="{StaticResource PrimaryText}"  
+                       FontSize="38" 
+                       FontWeight="Black" 
+                       Margin="10,0,0,25"/>
+            <TextBlock Text="Артисты" 
+                       Foreground="White" 
+                       FontSize="22" 
+                       FontWeight="Bold" 
+                       Margin="10,0,0,15"/>
+            
+            <WrapPanel Margin="0,0,0,30">
+                <Button Style="{StaticResource ArtistCardStyle}" Tag="The Weeknd"/>
+                <Button Style="{StaticResource ArtistCardStyle}" Tag="The Weeknd"/>
+                <Button Style="{StaticResource ArtistCardStyle}" Tag="The Weeknd"/>
+            </WrapPanel>
+
+            <TextBlock Text="Треки" 
+                       Foreground="White" 
+                       FontSize="22" 
+                       FontWeight="Bold" 
+                       Margin="10,0,0,15"/>
+            
+            <ContentControl Style="{StaticResource TrackListContainer}" Margin="0,0,0,40">
+                <StackPanel>
+                    <Button Style="{StaticResource TrackRowStyle}"/>
+                    <Button Style="{StaticResource TrackRowStyle}"/>
+                    <Button Style="{StaticResource TrackRowStyle}"/>
+                    <Button Style="{StaticResource TrackRowStyle}"/>
+                </StackPanel>
+            </ContentControl>
+
+            <TextBlock Text="Альбомы и плейлисты" 
+                       Foreground="White" 
+                       FontSize="22" 
+                       FontWeight="Bold" 
+                       Margin="10,0,0,15"/>
+            
+            <WrapPanel>
+                <Button Style="{StaticResource PlaylistCardStyle}" Tag="After Hours"/>
+                <Button Style="{StaticResource PlaylistCardStyle}" Tag="Scary Hours"/>
+                <Button Style="{StaticResource PlaylistCardStyle}" Tag="Starboy"/>
+            </WrapPanel>
+
+            <Border Height="80"/>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
