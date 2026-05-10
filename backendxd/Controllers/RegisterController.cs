@@ -109,7 +109,7 @@ namespace backendxd.Controllers
 
                 await transaction.CommitAsync();
 
-                return Ok(new { status = "registration_complete", username = newUser.Username });
+                return Ok(new { status = "registration_complete", username = newUser.Username, token = token });
             }
             catch (Exception ex)
             {

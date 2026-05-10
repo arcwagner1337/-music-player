@@ -10,6 +10,7 @@ namespace backendxd.Data
 
         public DbSet<User> Users { get; set; }
         public DbSet<PendingRegistration> PendingRegistrations { get; set; }
+
         //остальные таблицы добавляются по аналогии
     }
 }

@@ -52,7 +52,7 @@
                 <StackPanel Grid.Column="1" 
                         VerticalAlignment="Center" 
                         Margin="45,0,0,0">
-                    <TextBlock Text="Имя Пользователя" 
+                    <TextBlock x:Name="UserName" Text="Имя Пользователя" 
                            Foreground="{StaticResource PrimaryText}" 
                            FontSize="52" 
                            FontWeight="Black"/>
@@ -104,7 +104,7 @@
                                    FontSize="18" 
                                    VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Text="MAX_User" 
+                        <TextBlock x:Name="UserNameSmall" Text="MAX_User" 
                                Foreground="{StaticResource PrimaryText}" 
                                FontSize="18" 
                                FontWeight="SemiBold" 
@@ -125,7 +125,7 @@
                                    FontSize="18" 
                                    VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Text="user@example.com" 
+                        <TextBlock x:Name="UserEmail" Text="user@example.com" 
                                Foreground="{StaticResource PrimaryText}"
                                FontSize="18"
                                FontWeight="SemiBold" 
@@ -148,7 +148,7 @@
                                    FontSize="18" 
                                    VerticalAlignment="Center"/>
                         </StackPanel>
-                        <TextBlock Text="882341" 
+                        <TextBlock x:Name="UserID" Text="882341" 
                                Foreground="{StaticResource PrimaryText}" 
                                FontSize="18" 
                                FontWeight="SemiBold" 

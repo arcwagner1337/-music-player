@@ -29,7 +29,7 @@
                         <Border CornerRadius="25" 
                                 ClipToBounds="True"
                                 Background="#1A1A1E">
-                            <Image Source="/Resources/logo.png" 
+                            <Image Source="{Binding ImageUrl}" 
                                    Stretch="UniformToFill"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"/>
@@ -44,7 +44,7 @@
                                    FontSize="13" 
                                    FontWeight="Bold" 
                                    Opacity="0.5"/>
-                        <TextBlock Text="Название альбома" 
+                        <TextBlock Text="{Binding Name}" 
                                    Foreground="White" 
                                    FontSize="50" 
                                    FontWeight="Black" 
@@ -58,7 +58,7 @@
                                      Height="26" 
                                      Fill="{StaticResource AccentGradient}" 
                                      Margin="0,0,10,0"/>
-                            <TextBlock Text="Исполнитель" 
+                            <TextBlock x:Name="AlbumAuthor" Text="Исполнитель" 
                                        Foreground="White" 
                                        FontWeight="SemiBold" 
                                        FontSize="15" 
@@ -89,15 +89,17 @@
                               VerticalAlignment="Center"/>
                 </StackPanel>
 
+                <TextBlock Text="Треки альбома" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,20,0,10"/>
+
                 <ContentControl Style="{StaticResource TrackListContainer}">
-                    <StackPanel>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                    </StackPanel>
+                    <ItemsControl x:Name="TracksList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource TrackRowStyle}" 
+                        Tag="{Binding}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </ContentControl>
 
                 <Border Height="80"/>

@@ -23,7 +23,24 @@ namespace MusicAppFront.Views.Windows
         public LoginWindow()
         {
             InitializeComponent();
-            AuthFrame.Navigate(new LoginPage());
+
+            var token = MusicAppFront.AuthStorage.AuthStorage.GetToken();
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                // Если токен есть, сразу открываем главное окно
+                var mainWindow = new MainWindow();
+                mainWindow.Show();
+
+                // Закрываем это окно логина, чтобы оно не висело в памяти
+                this.Close();
+            }
+            else
+            {
+                // Токена нет — грузим страницу логина во фрейм
+                AuthFrame.Navigate(new LoginPage());
+            }
+            
         }
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {

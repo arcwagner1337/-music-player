@@ -80,8 +80,8 @@ namespace backendxd.Services
 
 
                 var uniqueAlbums = items
-                    .GroupBy(x => x.GetProperty("album").GetProperty("id").GetInt64())
-                    .Take(6);
+                    .GroupBy(x => x.GetProperty("album").GetProperty("id").GetInt64());
+                    
 
                 foreach (var albGroup in uniqueAlbums)
                 {
@@ -97,7 +97,7 @@ namespace backendxd.Services
             }
 
             bool isArtistSearch = artists.Any(a => a.Name.Equals(query, StringComparison.OrdinalIgnoreCase));
-            
+
 
             if (isArtistSearch)
             {
@@ -244,8 +244,20 @@ namespace backendxd.Services
 
         public async Task<string> GetAudioStreamUrl(string videoId)
         {
+            //var manifest = await _yt.Videos.Streams.GetManifestAsync(videoId);
+            //var streamInfo = manifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+
             var manifest = await _yt.Videos.Streams.GetManifestAsync(videoId);
-            var streamInfo = manifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+
+            // Фильтруем, чтобы получить только Mp4 (m4a), который WPF точно проглотит
+            var streamInfo = manifest.GetAudioOnlyStreams()
+                .Where(s => s.Container == YoutubeExplode.Videos.Streams.Container.Mp4)
+                .GetWithHighestBitrate();
+
+            // На случай, если mp4 вдруг не нашелся (крайне редко)
+            if (streamInfo == null)
+                streamInfo = manifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+
             return streamInfo.Url;
         }
 
@@ -254,14 +266,17 @@ namespace backendxd.Services
         public async Task<TrackDto2?> GetSimilarTrackAsync(string artist, string track)
         {
             string apiKey = "4d8d972f782abe5adfe7a8917e3c6e3d";
+            string workerUrl = "https://delicate-tooth-0e89.wellernam1788.workers.dev/";
             using var client = new HttpClient();
 
             try
             {
 
-                string url = $"http://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}&api_key={apiKey}&format=json&limit=10";
+                string lastFmUrl = $"https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}&api_key={apiKey}&format=json&limit=10";
+                string finalUrl = $"{workerUrl}?url={Uri.EscapeDataString(lastFmUrl)}";
 
-                var response = await client.GetFromJsonAsync<JsonElement>(url);
+
+                var response = await client.GetFromJsonAsync<JsonElement>(finalUrl);
 
                 if (response.TryGetProperty("similartracks", out var similarTracks))
                 {
@@ -299,6 +314,7 @@ namespace backendxd.Services
                         );
                     }
                 }
+
             }
             catch (Exception ex)
             {

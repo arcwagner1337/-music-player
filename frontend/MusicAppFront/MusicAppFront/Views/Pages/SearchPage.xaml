@@ -8,52 +8,62 @@
       Title="SearchPage">
 
     <ScrollViewer VerticalScrollBarVisibility="Hidden">
-        <StackPanel Margin="30,20">
-            <TextBlock Text="Результаты поиска:" 
-                       Foreground="{StaticResource PrimaryText}"  
-                       FontSize="38" 
-                       FontWeight="Black" 
-                       Margin="10,0,0,25"/>
-            <TextBlock Text="Артисты" 
-                       Foreground="White" 
-                       FontSize="22" 
-                       FontWeight="Bold" 
-                       Margin="10,0,0,15"/>
-            
-            <WrapPanel Margin="0,0,0,30">
-                <Button Style="{StaticResource ArtistCardStyle}" Tag="The Weeknd"/>
-                <Button Style="{StaticResource ArtistCardStyle}" Tag="The Weeknd"/>
-                <Button Style="{StaticResource ArtistCardStyle}" Tag="The Weeknd"/>
-            </WrapPanel>
+    <StackPanel Margin="30,20">
+        <TextBlock Text="Результаты поиска:" 
+                   Foreground="{StaticResource PrimaryText}"  
+                   FontSize="38" FontWeight="Black" Margin="10,0,0,25"/>
 
-            <TextBlock Text="Треки" 
-                       Foreground="White" 
-                       FontSize="22" 
-                       FontWeight="Bold" 
-                       Margin="10,0,0,15"/>
-            
-            <ContentControl Style="{StaticResource TrackListContainer}" Margin="0,0,0,40">
-                <StackPanel>
-                    <Button Style="{StaticResource TrackRowStyle}"/>
-                    <Button Style="{StaticResource TrackRowStyle}"/>
-                    <Button Style="{StaticResource TrackRowStyle}"/>
-                    <Button Style="{StaticResource TrackRowStyle}"/>
-                </StackPanel>
-            </ContentControl>
+        <TextBlock Text="Артисты" Foreground="White" FontSize="22" 
+                   FontWeight="Bold" Margin="10,0,0,15"/>
+        
+        <ItemsControl x:Name="ArtistsList" Margin="0,0,0,30">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel /> </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Style="{StaticResource ArtistCardStyle}" 
+                            Content="{Binding Name}" 
+                            Tag="{Binding}"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
-            <TextBlock Text="Альбомы и плейлисты" 
-                       Foreground="White" 
-                       FontSize="22" 
-                       FontWeight="Bold" 
-                       Margin="10,0,0,15"/>
-            
-            <WrapPanel>
-                <Button Style="{StaticResource PlaylistCardStyle}" Tag="After Hours"/>
-                <Button Style="{StaticResource PlaylistCardStyle}" Tag="Scary Hours"/>
-                <Button Style="{StaticResource PlaylistCardStyle}" Tag="Starboy"/>
-            </WrapPanel>
+        <TextBlock Text="Треки" Foreground="White" FontSize="22" 
+                   FontWeight="Bold" Margin="10,0,0,15"/>
+        
+        <ContentControl Style="{StaticResource TrackListContainer}" Margin="0,0,0,40">
+            <ItemsControl x:Name="TracksList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource TrackRowStyle}" 
+                                Click="TrackRow_Click"
+                                Tag="{Binding}"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ContentControl>
 
-            <Border Height="80"/>
-        </StackPanel>
-    </ScrollViewer>
+        <TextBlock Text="Альбомы и плейлисты" Foreground="White" FontSize="22" 
+                   FontWeight="Bold" Margin="10,0,0,15"/>
+        
+        <ItemsControl x:Name="AlbumsList">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Style="{StaticResource PlaylistCardStyle}" 
+                            Content="{Binding Name}"
+                            Tag="{Binding}"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Border Height="80"/>
+    </StackPanel>
+</ScrollViewer>
 </Page>

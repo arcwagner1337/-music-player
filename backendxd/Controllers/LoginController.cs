@@ -59,7 +59,7 @@ namespace backendxd.Controllers
                 MaxAge = TimeSpan.FromDays(7)
             });
 
-            return Ok(new { status = "success", username = user.Username });
+            return Ok(new { status = "success", username = user.Username, token = token });
         }
 
     }

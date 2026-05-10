@@ -9,6 +9,15 @@
       Title="EmailConfirmationPage"
       Background="Transparent">
 
+    <Page.Resources>
+        <Storyboard x:Key="RotateAnimation">
+            <DoubleAnimation Storyboard.TargetName="LoadingIcon"
+                     Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                     From="0" To="360" Duration="0:0:1" 
+                     RepeatBehavior="Forever"/>
+        </Storyboard>
+    </Page.Resources>
+
     <Grid VerticalAlignment="Center" Margin="40,0">
         <StackPanel>
             <TextBlock Text="Подтверждение" 
@@ -40,11 +49,40 @@
                      VerticalContentAlignment="Center"
                      Background="#18181B"/>
 
-            <Button Content="ПОДТВЕРДИТЬ" 
-                    Style="{StaticResource ModernButton}" 
-                    Margin="0,35,0,0" 
-                    Height="50"
-                    Click="ConfirmCode_Click"/>
+            <TextBlock x:Name="ConfirmErrorTextBlock" 
+           Foreground="#FF5555" 
+           FontSize="12"
+           HorizontalAlignment="Center" 
+           Margin="0,15,0,0" 
+           TextWrapping="Wrap"
+           Visibility="Collapsed" 
+           Text="Неверный код"/>
+
+            <Button 
+                 Style="{StaticResource ModernButton}" 
+                    Margin="0,20,0,0" 
+                    Click="ConfirmCode_Click">
+                <Grid>
+                    <TextBlock x:Name="ConfirmButton" Text="ПОДТВЕРДИТЬ" VerticalAlignment="Center"/>
+
+                    <Path x:Name="LoadingIcon"
+                        Data="M 10,0 A 10,10 0 1 1 0,10" 
+                        Stroke="White" 
+                        StrokeThickness="3"
+                        Width="20" Height="20"
+                        Stretch="Uniform"
+                        Visibility="Collapsed"
+                        RenderTransformOrigin="0.5,0.5"
+                        StrokeStartLineCap="Round" 
+                        StrokeEndLineCap="Round">
+                        <Path.RenderTransform>
+                            <RotateTransform Angle="0"/>
+                        </Path.RenderTransform>
+                    </Path>
+                </Grid>
+            </Button>
+
+
 
             <StackPanel Margin="0,30,0,0">
                 <Button x:Name="ResendButton" 

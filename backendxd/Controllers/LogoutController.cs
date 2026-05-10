@@ -3,24 +3,20 @@
 namespace backendxd.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
-    public class LogoutController : Controller
+    [Route("api/logout")]
+    public class LogoutController : ControllerBase // Лучше наследовать от ControllerBase для API
     {
         [HttpPost]
         public IActionResult Logout()
         {
-            // Очищаем cookie с токеном аутентификации
+            // Удаляем куку (важно, чтобы параметры Path и Domain совпадали с теми, что были при создании)
             Response.Cookies.Delete("auth_token", new CookieOptions
             {
                 HttpOnly = true,
                 Path = "/",
-                SameSite = SameSiteMode.Lax,
-                Secure = false // Установите true для HTTPS
+                Secure = true, // Ставь true, так как у тебя https://localhost
+                SameSite = SameSiteMode.Lax
             });
-
-            // Устанавливаем CORS-заголовки
-            HttpContext.Response.Headers.Append("Access-Control-Allow-Origin", "http://localhost");
-            HttpContext.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
 
             return Ok(new { status = "logged_out" });
         }

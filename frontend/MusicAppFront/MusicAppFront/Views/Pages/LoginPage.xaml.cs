@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Net.Http.Json;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,13 +16,26 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.IO;
+using MusicAppFront.AuthStorage;
 
 namespace MusicAppFront.Views.Pages
 {
-   
+
     public partial class LoginPage : Page
     {
-        private static readonly HttpClient _client = new HttpClient { BaseAddress = new Uri("https://localhost:7296/") };
+        private static readonly CookieContainer _cookieContainer = new CookieContainer();
+        private static readonly HttpClient _client = new HttpClient(new HttpClientHandler
+
+
+        {
+            CookieContainer = _cookieContainer,
+            UseCookies = true
+        })
+        {
+            BaseAddress = new Uri("https://localhost:7296/"),
+            Timeout = TimeSpan.FromSeconds(10)
+        };
         public LoginPage()
         {
             InitializeComponent();
@@ -35,6 +47,10 @@ namespace MusicAppFront.Views.Pages
 
         private async void Login_Click(object sender, RoutedEventArgs e)
         {
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string folderPath = System.IO.Path.Combine(appDataPath, "MusicApp");
+            string filePath = System.IO.Path.Combine(folderPath, "token.txt");
+
             var loginBtn = (Button)sender;
             ErrorTextBlock.Visibility = Visibility.Collapsed;
             ErrorTextBlock.Text = "";
@@ -52,26 +68,32 @@ namespace MusicAppFront.Views.Pages
 
             try
             {
-                
+
                 var loginData = new
                 {
                     Username = UsernameInput.Text,
-                    Password = PasswordInput.Password 
+                    Password = PasswordInput.Password
                 };
 
-                
+
                 var response = await _client.PostAsJsonAsync("api/login", loginData);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    
+                    var data = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+                    if (data.ContainsKey("token"))
+                    {
+                        AuthStorage.AuthStorage.SaveToken(data["token"]); // Сохраняем без хардкода путей
+                    }
+
+
                     var mainWindow = new Windows.MainWindow();
                     mainWindow.Show();
                     Window.GetWindow(this).Close();
                 }
                 else
                 {
-                    
+
                     var errorResponse = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     string errorCode = errorResponse?.GetValueOrDefault("error") ?? "UNKNOWN_ERROR";
                     ShowError(GetFriendlyErrorMessage(errorCode));
