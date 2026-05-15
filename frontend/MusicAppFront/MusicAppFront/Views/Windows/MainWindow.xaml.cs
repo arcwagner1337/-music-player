@@ -1,6 +1,7 @@
 ﻿using MusicAppFront.Models;
 using MusicAppFront.Views.Pages;
 using System;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using static MusicAppFront.Models.SearchResultDto;
 
 namespace MusicAppFront.Views.Windows
@@ -21,7 +23,7 @@ namespace MusicAppFront.Views.Windows
         private MaxFlowPage _maxFlowPage;
 
         private readonly HttpClient _httpClient;
-        private MediaPlayer mediaPlayer = new MediaPlayer();
+
 
         public MainWindow()
         {
@@ -36,7 +38,142 @@ namespace MusicAppFront.Views.Windows
             _playlistsPage = new PlaylistsPage();
             _maxFlowPage = new MaxFlowPage();
             MainFrame.Navigate(_homePage);
+            GlobalPlayer.OnPlayingStarted += () =>
+            {
+                
+                Dispatcher.Invoke(() =>
+                {
+                    GlobalPlayPauseBtn.Content = "\uE103";
+                    GlobalPlayPauseBtn.Padding = new Thickness(0);
+                });
+            };
+
+            GlobalPlayer.OnPlayingPaused += () =>
+            {
+
+                Dispatcher.Invoke(() =>
+                {
+                    GlobalPlayPauseBtn.Content = "\uE102";
+                    GlobalPlayPauseBtn.Padding = new Thickness(2, 0, 0, 0);
+                });
+            };
+
+            GlobalPlayer.OnTrackChanged += () => {
+                var track = GlobalPlayer.CurrentTrack;
+                if (track != null)
+                {
+                    Dispatcher.Invoke(() => {
+                        BottomTrackTitle.Text = track.Title;
+                        BottomTrackArtist.Text = track.Author;
+
+                        // Обновляем обложку
+                        if (!string.IsNullOrEmpty(track.ImageUrl))
+                        {
+                            try
+                            {
+                                BottomTrackImage.Source = new BitmapImage(new Uri(track.ImageUrl));
+                                BottomTrackImage.Visibility = Visibility.Visible;
+                                //BottomTrackPlaceholder.Visibility = Visibility.Collapsed;
+                            }
+                            catch
+                            {
+                                // Если ссылка битая или формат странный
+                                ShowPlaceholder();
+                            }
+                        }
+                        else
+                        {
+                            ShowPlaceholder();
+                        }
+                    });
+                }
+            };
+
+
+
+
+            long currentTotalMs = 0; // Запомним текущую длину трека
+
+            GlobalPlayer.OnLengthChanged += (totalMs) => {
+                currentTotalMs = totalMs;
+                var time = TimeSpan.FromMilliseconds(totalMs);
+                Dispatcher.Invoke(() => {
+                    TotalTimeText.Text = string.Format("{0}:{1:D2}", (int)time.TotalMinutes, time.Seconds);
+                    TimelineSlider.Maximum = totalMs;
+                });
+            };
+
+            GlobalPlayer.OnTimeChanged += (currentMs) => {
+                var time = TimeSpan.FromMilliseconds(currentMs);
+                Dispatcher.Invoke(() => {
+                    CurrentTimeText.Text = string.Format("{0}:{1:D2}", (int)time.TotalMinutes, time.Seconds);
+                    if (!TimelineSlider.IsMouseCaptureWithin) // Чтобы ползунок не прыгал, когда мы его тащим
+                    {
+                        TimelineSlider.Value = currentMs;
+                    }
+                });
+            };
         }
+
+        private void ShowPlaceholder()
+        {
+            BottomTrackImage.Visibility = Visibility.Collapsed;
+            //BottomTrackPlaceholder.Visibility = Visibility.Visible;
+        }
+
+        private void TimelineSlider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (TimelineSlider.Maximum > 0)
+            {
+                // Рассчитываем относительную позицию (от 0.0 до 1.0)
+                float seekPos = (float)(TimelineSlider.Value / TimelineSlider.Maximum);
+
+                // Отправляем в VLC
+                GlobalPlayer.Seek(seekPos);
+
+                Debug.WriteLine($"[VLC] Перемотка на: {seekPos * 100}%");
+            }
+        }
+
+        private async void BtnNext_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. Проверяем, открыта ли сейчас страница альбома
+            if (MainFrame.Content is InfoPlaylistPage albumPage)
+            {
+                // Вызываем метод в InfoPlaylistPage, который найдет следующий трек в списке
+                await albumPage.PlayNextTrack();
+            }
+            else
+            {
+                // 2. Если мы в поиске, вызываем твой алгоритм подбора похожего трека
+                //PlayRecommendedTrack();
+            }
+        }
+
+        private void GlobalPlayPause_Click(object sender, RoutedEventArgs e)
+        {
+            //if (GlobalPlayer.CurrentTrack == null) return;
+
+            GlobalPlayer.TogglePause();
+
+            // Ручной переключатель: если в контенте треугольник — ставим палочки, и наоборот
+            
+            if (GlobalPlayPauseBtn.Content.Equals("\uE102"))
+            {
+                GlobalPlayPauseBtn.Content = "\uE103";
+                GlobalPlayPauseBtn.Padding = new Thickness(0);
+            }
+            else
+            {
+                GlobalPlayPauseBtn.Content = "\uE102";
+                GlobalPlayPauseBtn.Padding = new Thickness(2, 0, 0, 0);
+            }
+        }
+
+
+
+
+
         private void HomeTab_Click(object sender, RoutedEventArgs e)
         {
             if (MainFrame.Content != _homePage)
@@ -115,7 +252,7 @@ namespace MusicAppFront.Views.Windows
                 }
             }
         }
-        
+
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -137,45 +274,9 @@ namespace MusicAppFront.Views.Windows
             MainFrame.Navigate(new FullPlayerPage());
         }
 
-        public void PlayMusic(string url)
-        {
-            // Очистка
-            mediaPlayer.Stop();
-            mediaPlayer.Close();
 
-            // Подписки
-            mediaPlayer.MediaOpened -= MediaPlayer_MediaOpened;
-            mediaPlayer.MediaFailed -= MediaPlayer_MediaFailed;
-            mediaPlayer.MediaOpened += MediaPlayer_MediaOpened;
-            mediaPlayer.MediaFailed += MediaPlayer_MediaFailed;
 
-            // Ссылка
-            Uri mediaUri = new Uri(url);
-            System.Diagnostics.Debug.WriteLine($"[PLAYER] Загрузка: {mediaUri.AbsoluteUri}");
 
-            mediaPlayer.Open(mediaUri);
-
-            // ВАЖНО: Дай ему команду играть ПРЯМО СЕЙЧАС
-            mediaPlayer.Play();
-
-            // Таймер-проверка (через 2 секунды спросим его: "ты как?")
-            Task.Delay(2000).ContinueWith(t => {
-                Application.Current.Dispatcher.Invoke(() => {
-                    System.Diagnostics.Debug.WriteLine($"[PLAYER CHECK] Position: {mediaPlayer.Position} | Buffering: {mediaPlayer.BufferingProgress}");
-                });
-            });
-        }
-
-        private void MediaPlayer_MediaOpened(object sender, EventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine("[PLAYER SUCCESS] Файл успешно открыт! Начинаю воспроизведение.");
-            System.Diagnostics.Debug.WriteLine($"[PLAYER INFO] Длительность: {mediaPlayer.NaturalDuration}");
-        }
-
-        private void MediaPlayer_MediaFailed(object sender, ExceptionEventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine($"[PLAYER ERROR] Ошибка: {e.ErrorException.Message}");
-        }
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -9,7 +10,44 @@ namespace MusicAppFront.Models
 {
     public class SearchResultDto
     {
-        public record TrackDto2(string Title, string Author, string Url, string CleanArtist, string CleanTitle, string ImageUrl);
+        public class TrackDto2 : INotifyPropertyChanged
+        {
+            // Стандартные свойства для данных
+            public string Title { get; set; }
+            public string Author { get; set; }
+            public string Url { get; set; }
+            public string ImageUrl { get; set; }
+            public string CleanTitle { get; set; }
+
+            // Свойства с уведомлением об изменении (для UI)
+            private bool _isPlaying;
+            public bool IsPlaying
+            {
+                get => _isPlaying;
+                set
+                {
+                    _isPlaying = value;
+                    OnPropertyChanged(nameof(IsPlaying));
+                }
+            }
+
+            private string _durationStr = "--:--";
+            public string DurationStr
+            {
+                get => _durationStr;
+                set
+                {
+                    _durationStr = value;
+                    OnPropertyChanged(nameof(DurationStr));
+                }
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+            protected void OnPropertyChanged(string name) =>
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+
         public record ArtistDto(string Name, string Url, string ImageUrl, string Bio, string Id);
         public record AlbumDto(
             string Name,

@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -19,6 +20,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using static MusicAppFront.Models.SearchResultDto;
 
 namespace MusicAppFront.Views.Pages
 {
@@ -27,16 +29,7 @@ namespace MusicAppFront.Views.Pages
     /// </summary>
     public partial class SearchPage : Page
     {
-        private static readonly CookieContainer _cookieContainer = new CookieContainer();
-        private static readonly HttpClient _client = new HttpClient(new HttpClientHandler
-        {
-            CookieContainer = _cookieContainer,
-            UseCookies = true
-        })
-        {
-            BaseAddress = new Uri("https://localhost:7296/"),
-            Timeout = TimeSpan.FromSeconds(40)
-        };
+
 
         public SearchPage(SearchResultDto results)
         {
@@ -44,60 +37,69 @@ namespace MusicAppFront.Views.Pages
             ArtistsList.ItemsSource = results.Artists;
             TracksList.ItemsSource = results.Tracks;
             AlbumsList.ItemsSource = results.Albums;
+            GlobalPlayer.Init();
         }
-
-        private async void TrackRow_Click(object sender, RoutedEventArgs e)
+        private TrackDto2 _lastPlayedTrack;
+        
+        private bool _isDataLoading = false;
+        public async void TrackRow_Click(object sender, RoutedEventArgs e)
         {
+
+            if (_isDataLoading) return;
             var btn = sender as Button;
-            var track = btn?.DataContext as dynamic;
+            var track = btn?.DataContext as TrackDto2;
+
             if (btn == null || track == null) return;
 
-            System.Diagnostics.Debug.WriteLine("не тыкай!");
-            var button = sender as Button;
-            // Убедись, что в твоем TrackDto2/TrackDto поля называются Author и Title
-            // судя по твоему XAML биндингу: {Binding Title} и {Binding Author}
-            //dynamic track = button.DataContext;
+            if (_lastPlayedTrack == track)
+            {
+                if (track.IsPlaying) { GlobalPlayer.Pause(); track.IsPlaying = false; }
+                else { GlobalPlayer.Resume(); track.IsPlaying = true; }
+                return;
+            }
 
             try
             {
                 btn.IsEnabled = false;
+                _isDataLoading = true;
+                if (_lastPlayedTrack != null) _lastPlayedTrack.IsPlaying = false;
+
+
+     
                 string artist = track.Author;
                 string title = track.Title;
 
-                // 1. Стучимся на бэк за ссылкой
-                // Используем Uri.EscapeDataString, чтобы пробелы в названиях не сломали URL
-                string requestUrl = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(title)}";
 
-                var response = await _client.GetFromJsonAsync<StreamResponse>(requestUrl);
-                System.Diagnostics.Debug.WriteLine($"[BACKEND RESPONSE]: {response?.Url}");
+                string streamUrl = $"https://localhost:7296/api/music/stream?artist={artist}&track={title}";
+                string test = $"https://localhost:7296/api/music/stream?artist=judas%20priest&track=creatures";
+                GlobalPlayer.CurrentTrack = track;
 
+                System.Diagnostics.Debug.WriteLine("Отправляю в плеер: " + test);
+                System.Diagnostics.Debug.WriteLine("ДИНАМИЧЕСКИЙ URL: " + streamUrl);
 
+                var tcs = new TaskCompletionSource<bool>();
+                GlobalPlayer.OnPlayingStarted += () => tcs.TrySetResult(true);
 
+                // Теперь UriFormatException пропадет
+                GlobalPlayer.Play(streamUrl);
 
-                if (response != null && !string.IsNullOrEmpty(response.Url))
-                {
-                    // 2. Запускаем воспроизведение
-                    // MediaPlayer лучше держать глобально в MainWindow
-                    
+                await Task.WhenAny(tcs.Task, Task.Delay(10000));
+                track.IsPlaying = true;
+                _lastPlayedTrack = track;
 
-
-                    var mainWindow = Application.Current.MainWindow as MainWindow;
-                    if (mainWindow != null)
-                    {
-                        mainWindow.PlayMusic(response.Url);
-                    }
-
-                    // 3. Обновляем UI нижнего плеера
-                    //UpdateBottomBar(track);
-                }
+            }
+            catch (OperationCanceledException)
+            {
+                System.Diagnostics.Debug.WriteLine("[DEBUG] Запрос отменен, так как выбран другой трек.");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Ошибка стриминга: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Ошибка стриминга: {ex.Message}");
             }
             finally
             {
-                btn.IsEnabled = true;
+                btn.IsEnabled = true; 
+                _isDataLoading = false;
             }
         }
 

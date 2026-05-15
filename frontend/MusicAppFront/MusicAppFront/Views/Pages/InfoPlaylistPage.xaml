@@ -96,7 +96,9 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Button Style="{StaticResource TrackRowStyle}" 
-                        Tag="{Binding}"/>
+                                        Click="TrackRow_Click" 
+                                        DataContext="{Binding}"
+                                        Tag="{Binding}"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

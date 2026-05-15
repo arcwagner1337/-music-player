@@ -199,7 +199,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="border" CornerRadius="19" Background="{TemplateBinding Background}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -848,7 +848,7 @@
                         Orientation="Horizontal" 
                         HorizontalAlignment="Right" 
                         VerticalAlignment="Center">
-                                <TextBlock Text="--:--" 
+                                <TextBlock Text="{Binding DurationStr}" 
                            Foreground="{StaticResource SecondaryText}" 
                            VerticalAlignment="Center" 
                            Margin="0,0,20,0" 
@@ -877,6 +877,21 @@
                             <Setter TargetName="trackBorder" Property="Background" Value="#2A2A2E"/>
                             <Setter TargetName="trackNum" Property="Foreground" Value="White"/>
                         </Trigger>
+
+                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                            <Setter TargetName="trackNum" Property="Text" Value="⏸"/>
+                            <Setter TargetName="trackNum" Property="Foreground" Value="#1DB954"/>
+                        </DataTrigger>
+
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsPlaying}" Value="False"/>
+                                <Condition Binding="{Binding IsEnabled, RelativeSource={RelativeSource TemplatedParent}}" Value="True"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter TargetName="trackNum" Property="Text" Value="▶"/>
+                        </MultiDataTrigger>
+
+
                     </ControlTemplate.Triggers>
 
 

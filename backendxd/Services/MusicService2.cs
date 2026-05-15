@@ -1,4 +1,5 @@
 ﻿using backendxd.DTOS;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -172,11 +173,11 @@ namespace backendxd.Services
 
 
 
-        private async Task<TrackDto2?> SearchOnYouTubeAsync(string artist, string track)
+        public async Task<TrackDto2?> SearchOnYouTubeAsync(string artist, string track)
         {
 
             var searchQuery = $"\"{artist}\" {track} official audio";
-            var searchResult = await _yt.Search.GetVideosAsync(searchQuery).CollectAsync(10);
+            var searchResult = await _yt.Search.GetVideosAsync(searchQuery).CollectAsync(1);
 
             if (searchResult.Count > 0)
             {
@@ -218,6 +219,259 @@ namespace backendxd.Services
             }
             return null;
         }
+
+
+        public async Task<List<string?>> SearchOnYouTubeAsync3(string artist, string track)
+        {
+            // 1. Убираем жесткий маркер "official audio", чтобы не отсекать клипы "official video"
+            // Оставляем кавычки на артисте для точности
+            var searchQuery = $"\"{artist}\" {track}";
+
+            // Берем первые 5 результатов для более надежного анализа
+            var searchResults = _yt.Search.GetVideosAsync(searchQuery);
+            var videoList = new List<YoutubeExplode.Search.VideoSearchResult>();
+
+            int count = 0;
+            await foreach (var videoResult in searchResults)
+            {
+                videoList.Add(videoResult);
+                count++;
+                if (count >= 5) break;
+            }
+
+            if (videoList.Count > 0)
+            {
+                string[] stopWords = { "live", "concert", "remix", "cover", "festival", "tour" };
+
+                // 2. Умное ранжирование с системой штрафов и поощрений
+                var bestVideo = videoList.OrderByDescending(v =>
+                {
+                    int score = 0;
+                    string titleLower = v.Title.ToLowerInvariant();
+                    string channelLower = v.Author.ChannelTitle.ToLowerInvariant();
+                    string artistLower = artist.ToLowerInvariant();
+
+                    // ПЛЮСЫ: Приоритет официальным топикам артиста (там всегда чистый трек)
+                    if (channelLower.Equals($"{artistLower} - topic", StringComparison.OrdinalIgnoreCase)) score += 50;
+                    if (channelLower.Contains(artistLower)) score += 20;
+
+                    // ПЛЮСЫ: Проверка маркеров официальных релизов
+                    if (titleLower.Contains("official audio")) score += 30;
+                    if (titleLower.Contains("official video")) score += 25; // Теперь клипы тоже в игре!
+                    if (titleLower.Contains("remaster")) score += 15;
+
+                    // ШТРАФЫ: Жестко топим концертники, каверы и ремиксы, если их не искали специально
+                    if (stopWords.Any(word => titleLower.Contains(word))) score -= 200;
+
+                    // ШТРАФЫ: Наказываем сдвоенные треки со слэшем (как ваш Iron Maiden)
+                    if (titleLower.Contains("/") || titleLower.Contains(" / ")) score -= 150;
+
+                    // ШТРАФЫ ЗА ДЛИТЕЛЬНОСТЬ (Аномально длинные видео)
+                    double durationMinutes = v.Duration?.TotalMinutes ?? 0;
+
+                    // Большинство синглов длятся от 3 до 5 минут. 
+                    // Если видео идет дольше 6 минут или меньше 2 минут — это скорее всего склейка или тизер.
+                    if (durationMinutes > 6.0) score -= 100;
+                    if (durationMinutes < 1.5) score -= 80;
+
+                    return score;
+                }).FirstOrDefault();
+
+                // Если даже после сортировки ничего не нашли (маловероятно), берем первый элемент
+                var video = bestVideo ?? videoList.FirstOrDefault();
+
+                if (video != null)
+                {
+                    double seconds = video.Duration?.TotalSeconds ?? 0;
+                    string durationStr = seconds.ToString("G", System.Globalization.CultureInfo.InvariantCulture);
+
+                    return new List<string?> { video.Url, durationStr };
+                }
+            }
+            return null;
+        }
+
+
+        public async Task<List<string?>> SearchOnYouTubeAsync2(string artist, string track)
+        {
+            // Оставляем твою отличную логику поискового запроса
+            var searchQuery = $"\"{artist}\" {track} official audio";
+
+            // ОПТИМИЗАЦИЯ: Вместо .CollectAsync() используем асинхронный стрим.
+            // Берем только первые 3 результата для быстрой фильтрации, а не всю страницу.
+            var searchResults = _yt.Search.GetVideosAsync(searchQuery);
+            var videoList = new List<YoutubeExplode.Search.VideoSearchResult>();
+
+            // 2. Вручную берем первые 3 элемента через обычный счетчик
+            int count = 0;
+            await foreach (var videoResult in searchResults)
+            {
+                videoList.Add(videoResult);
+                count++;
+
+                // Как только набрали 3 штуки — мгновенно прерываем запрос к YouTube
+                if (count >= 3) break;
+            }
+
+            if (videoList.Count > 0)
+            {
+                string[] stopWords = { "live", "concert", "remix", "cover", "festival", "tour" };
+
+                var video = videoList.OrderByDescending(v =>
+                {
+                    int score = 0;
+                    if (v.Author.ChannelTitle.Equals($"{artist} - Topic", StringComparison.OrdinalIgnoreCase)) score += 10;
+                    if (v.Title.Contains("Official Audio", StringComparison.OrdinalIgnoreCase)) score += 5;
+                    return score;
+                }).FirstOrDefault(v =>
+                    v.Duration > TimeSpan.FromMinutes(1) &&
+                    v.Duration < TimeSpan.FromMinutes(15) &&
+                    !stopWords.Any(word => v.Title.Contains(word, StringComparison.OrdinalIgnoreCase)) &&
+                    (v.Author.ChannelTitle.Contains(artist, StringComparison.OrdinalIgnoreCase) || v.Title.Contains(artist, StringComparison.OrdinalIgnoreCase))
+                ) ?? videoList.FirstOrDefault(); // Если никто не подошел под фильтр, берем самый первый
+
+                if (video != null)
+                {
+                    // Возвращаем прямую ссылку на видео для твоего WebView
+                    double seconds = video.Duration?.TotalSeconds ?? 0;
+
+                    // Переводим double в строку. Спецификатор "G" и InvariantCulture 
+                    // гарантируют, что число запишется как "245.5" (с точкой), а не "245,5" (с запятой)
+                    string durationStr = seconds.ToString("G", System.Globalization.CultureInfo.InvariantCulture);
+
+                    List<string?> Data = new List<string?>
+                        {
+                            video.Url,
+                            durationStr
+                        };
+
+                    return Data;
+                }
+            }
+
+            return null;
+        }
+
+
+
+        private static readonly Dictionary<string, (string url, DateTime expiry)> _urlCache = new();
+
+        public async Task<string> GetCachedDirectUrlAsync(string videoUrl)
+        {
+            // Если ссылка есть в кэше и она не старше 2 часов
+            if (_urlCache.TryGetValue(videoUrl, out var cached) && cached.expiry > DateTime.Now)
+            {
+                Console.WriteLine("[CACHE] Используем сохраненную ссылку");
+                return cached.url;
+            }
+
+            // Если в кэше нет — ищем через yt-dlp
+            var ytInfo = new ProcessStartInfo
+            {
+                FileName = "yt-dlp.exe",
+                Arguments = $"-g -f bestaudio \"{videoUrl}\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var ytProcess = Process.Start(ytInfo);
+            string directUrl = (await ytProcess.StandardOutput.ReadToEndAsync()).Trim();
+
+            // Сохраняем на 2 часа (YouTube ссылки обычно живут дольше, но так безопаснее)
+            _urlCache[videoUrl] = (directUrl, DateTime.Now.AddHours(2));
+
+            return directUrl;
+        }
+
+        public Process GetFFmpegAudioProcess(string directUrl, int seekSeconds = 0)
+        {
+            string seekTime = TimeSpan.FromSeconds(seekSeconds).ToString(@"hh\:mm\:ss");
+            var ffmpegInfo = new ProcessStartInfo
+            {
+                FileName = "ffmpeg.exe",
+                //Arguments = $"-ss {seekTime} -i \"{directUrl}\" -avoid_negative_ts make_zero -acodec pcm_s16le -f s16le -ar 44100 -ac 2 -loglevel quiet -",
+                Arguments = $"-ss {seekTime} -i \"{directUrl}\" -acodec pcm_s16le -f s16le -ar 44100 -ac 2 -loglevel quiet -",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            return Process.Start(ffmpegInfo);
+        }
+
+        //public Process GetFFmpegAudioProcess(string videoUrl, int seekSeconds = 0)
+        //{
+        //    // 1. Получаем URL (быстро)
+        //    var ytInfo = new ProcessStartInfo
+        //    {
+        //        FileName = "yt-dlp.exe",
+        //        Arguments = $"-g -f bestaudio \"{videoUrl}\"",
+        //        RedirectStandardOutput = true,
+        //        UseShellExecute = false,
+        //        CreateNoWindow = true
+        //    };
+        //    using var ytProcess = Process.Start(ytInfo);
+        //    string directUrl = ytProcess.StandardOutput.ReadToEnd().Trim();
+        //    // Убираем WaitForExit, ReadToEnd и так дождется конца потока
+
+        //    // 2. FFmpeg
+        //    string seekTime = TimeSpan.FromSeconds(seekSeconds).ToString(@"hh\:mm\:ss");
+        //    var ffmpegInfo = new ProcessStartInfo
+        //    {
+        //        FileName = "ffmpeg.exe",
+        //        // Добавили -avoid_negative_ts make_zero для стабильности перемотки
+        //        Arguments = $"-ss {seekTime} -i \"{directUrl}\" -avoid_negative_ts make_zero -acodec pcm_s16le -f s16le -ar 44100 -ac 2 -loglevel quiet -",
+        //        RedirectStandardOutput = true,
+        //        UseShellExecute = false,
+        //        CreateNoWindow = true
+        //    };
+        //    return Process.Start(ffmpegInfo);
+        //}
+
+
+
+
+        //public Process GetFFmpegAudioProcess(string videoUrl, int seekSeconds = 0)
+        //{
+        //    // 1. Получаем прямую ссылку через yt-dlp (она работает стабильнее манифестов)
+        //    var ytInfo = new ProcessStartInfo
+        //    {
+        //        FileName = "yt-dlp.exe",
+        //        Arguments = $"-g -f bestaudio \"{videoUrl}\"",
+        //        RedirectStandardOutput = true,
+        //        UseShellExecute = false,
+        //        CreateNoWindow = true
+        //    };
+        //    var ytProcess = Process.Start(ytInfo);
+        //    string directUrl = ytProcess.StandardOutput.ReadToEnd().Trim();
+        //    ytProcess.WaitForExit();
+
+        //    // 2. Запускаем FFmpeg, который будет конвертировать это в сырой PCM
+        //    string seekTime = TimeSpan.FromSeconds(seekSeconds).ToString(@"hh\:mm\:ss");
+
+        //    var ffmpegInfo = new ProcessStartInfo
+        //    {
+        //        FileName = "ffmpeg.exe",
+        //        // ВАЖНО: -ss {seekTime} ПЕРЕД -i делает перемотку мгновенной
+        //        Arguments = $"-ss {seekTime} -i \"{directUrl}\" -acodec pcm_s16le -f s16le -ar 44100 -ac 2 -loglevel quiet -",
+        //        RedirectStandardOutput = true,
+        //        UseShellExecute = false,
+        //        CreateNoWindow = true
+        //    };
+        //    return Process.Start(ffmpegInfo);
+        //}
+
+
+
+
+
+
+
+
+
+
+        /// /// стримы старые ниже(алгоритмы не трогать)
+
 
 
         public async Task<string> GetFullStreamByTrackInfoAsync(string artist, string track)
@@ -263,7 +517,7 @@ namespace backendxd.Services
 
 
 
-        public async Task<TrackDto2?> GetSimilarTrackAsync(string artist, string track)
+        public async Task<TrackDto2?> GetSimilarTrackAsync(string artist, string track, List<string> exclude)
         {
             string apiKey = "4d8d972f782abe5adfe7a8917e3c6e3d";
             string workerUrl = "https://delicate-tooth-0e89.wellernam1788.workers.dev/";
@@ -271,16 +525,38 @@ namespace backendxd.Services
 
             try
             {
-
-                string lastFmUrl = $"https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}&api_key={apiKey}&format=json&limit=10";
+                // Лимит 100, чтобы было из чего выбирать после фильтрации
+                string lastFmUrl = $"https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}&api_key={apiKey}&format=json&limit=100";
                 string finalUrl = $"{workerUrl}?url={Uri.EscapeDataString(lastFmUrl)}";
-
 
                 var response = await client.GetFromJsonAsync<JsonElement>(finalUrl);
 
                 if (response.TryGetProperty("similartracks", out var similarTracks))
                 {
-                    var trackList = similarTracks.GetProperty("track").EnumerateArray().ToList();
+                    var trackList = similarTracks.GetProperty("track").EnumerateArray()
+     // Фильтруем исходные JsonElement, не изменяя их тип:
+     .Where(t => {
+         // Безопасно извлекаем значения (с проверкой на существование свойств)
+         string? artist = t.TryGetProperty("artist", out var artEl) && artEl.TryGetProperty("name", out var artNameEl)
+             ? artNameEl.GetString()
+             : null;
+
+         string? title = t.TryGetProperty("name", out var nameEl)
+             ? nameEl.GetString()
+             : null;
+
+         // Если имя артиста или трека не найдены — пропускаем элемент
+         if (artist == null || title == null)
+             return false;
+
+         // Проверяем по вашему списку исключений (регистронезависимо)
+         string key = $"{artist.ToLower()} - {title.ToLower()}";
+         return !exclude.Contains(key);
+     })
+     // Собираем отфильтрованные JsonElement в итоговый список
+     .ToList();
+
+
 
                     if (trackList.Count > 0)
                     {
