@@ -171,7 +171,7 @@ namespace testPlayer
             _currentlyPlayingTrack = track;
 
             // 3. Обновляем UI
-            TxtStatus.Text = $"{track.Artist} - {track.Title}";
+            trackName.Text = $"{track.Artist} - {track.Title}";
             TimelineSlider.Maximum = track.Duration;
             TimelineSlider.Value = 0;
 
@@ -219,6 +219,7 @@ namespace testPlayer
 
             _isPlayerReady = true;
             TxtStatus.Text = "Плеер готов. Нажмите Play";
+            BtnPlay.IsEnabled = true;
 
             _syncTimer = new System.Windows.Threading.DispatcherTimer();
             _syncTimer.Interval = TimeSpan.FromMilliseconds(250); // Опрашиваем плеер 4 раза в секунду
@@ -271,6 +272,7 @@ namespace testPlayer
                 {
                     TxtStatus.Text = "Буферизация потока...";
                     BtnPlay.Content = "⌛ Загрузка...";
+                    BtnPlay.IsEnabled = false;
                 }
                 else
                 {
@@ -279,11 +281,13 @@ namespace testPlayer
                     {
                         BtnPlay.Content = "⏸ Pause";
                         TxtStatus.Text = "Сейчас играет";
+                        BtnPlay.IsEnabled = true;
                     }
                     else
                     {
                         BtnPlay.Content = "▶ Play";
                         TxtStatus.Text = "На паузе";
+                        BtnPlay.IsEnabled = true;
                     }
                 }
 
@@ -353,6 +357,7 @@ var checkEndedInterval = setInterval(function() {
                 Dispatcher.Invoke(() => {
                     BtnPlay.Content = "⏸ Pause";
                     TxtStatus.Text = "Сейчас играет";
+                    BtnPlay.IsEnabled = true;
                 });
             }
             // ОБРАБОТКА ПАУЗЫ
@@ -362,6 +367,7 @@ var checkEndedInterval = setInterval(function() {
                 Dispatcher.Invoke(() => {
                     BtnPlay.Content = "▶ Play";
                     TxtStatus.Text = "На паузе";
+                    BtnPlay.IsEnabled = true;
                 });
             }
             // ОБРАБОТКА ОКОНЧАНИЯ ПЕРЕМОТКИ
@@ -372,11 +378,13 @@ var checkEndedInterval = setInterval(function() {
                     {
                         BtnPlay.Content = "⏸ Pause";
                         TxtStatus.Text = "Сейчас играет";
+                        BtnPlay.IsEnabled = true;
                     }
                     else
                     {
                         BtnPlay.Content = "▶ Play";
                         TxtStatus.Text = "На паузе";
+                        BtnPlay.IsEnabled = true;
                     }
                 });
             }
@@ -387,6 +395,7 @@ var checkEndedInterval = setInterval(function() {
                     // Меняем только статус текста, саму кнопку "Pause" не превращаем в загрузку, 
                     // чтобы у пользователя оставалась возможность нажать на нее и остановить зависший поток!
                     TxtStatus.Text = "Буферизация потока...";
+                    BtnPlay.IsEnabled = false;
                 });
             }
             // ОБРАБОТКА ДВИЖЕНИЯ ПОЛЗУНКА
@@ -428,6 +437,7 @@ var checkEndedInterval = setInterval(function() {
             {
                 string artist = "ratt", track = "round and round";
                 TxtStatus.Text = "Поиск...";
+                BtnPlay.IsEnabled = true;
 
                 string url = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}";
                 string json = await _client.GetStringAsync(url);
@@ -472,7 +482,8 @@ var checkEndedInterval = setInterval(function() {
         //    if (!string.IsNullOrEmpty(currentSrc) && currentSrc != "null")
         //    {
         //        // Защита от спама кнопкой: меняем текст только временно
-        //        TxtStatus.Text = "Обработка...";
+        //
+        //        .Text = "Обработка...";
 
         //        if (_isPlaying)
         //        {
@@ -718,6 +729,42 @@ var checkEndedInterval = setInterval(function() {
             await HiddenBrowser.ExecuteScriptAsync(jsSetTime);
 
             // 2. Снимаем флаг блокировки, чтобы C# снова начал принимать время из Chromium
+            _isDragging = false;
+        }
+
+        private async void TimelineSlider_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // 1. Проверяем, что кликнули именно по слайдеру, а не по самой пипке (Thumb)
+            // Если кликнуть по Thumb, сработает стандартный Drag, и нам мешать ему не нужно
+            if (e.OriginalSource is System.Windows.Controls.Primitives.Thumb)
+                return;
+
+            var slider = (System.Windows.Controls.Slider)sender;
+
+            // 2. Получаем позицию клика относительно самого слайдера
+            System.Windows.Point clickPoint = e.GetPosition(slider);
+
+            // 3. Вычисляем процент сдвига (от 0.0 до 1.0) в зависимости от ширины слайдера
+            double relativePosition = clickPoint.X / slider.ActualWidth;
+
+            // Ограничиваем рамками от 0 до 1 на всякий случай
+            relativePosition = Math.Max(0.0, Math.Min(1.0, relativePosition));
+
+            // 4. Переводим процент в реальное значение слайдера (время трека)
+            double newValue = slider.Minimum + (relativePosition * (slider.Maximum - slider.Minimum));
+
+            // 5. Заставляем UI временно замереть, как при перетаскивании
+            _isDragging = true;
+            HiddenBrowser.ExecuteScriptAsync("window.isSliderDragging = true;");
+
+            // 6. Присваиваем новое значение слайдеру
+            slider.Value = newValue;
+
+            // 7. Отправляем время в Chromium (используем инвариантную культуру для точки вместо запятой)
+            string jsSetTime = $"var v = document.querySelector('video'); if(v) {{ v.currentTime = {newValue.ToString(System.Globalization.CultureInfo.InvariantCulture)}; }}";
+            await HiddenBrowser.ExecuteScriptAsync(jsSetTime);
+
+            // 8. Возвращаем всё назад
             _isDragging = false;
         }
 

@@ -519,17 +519,31 @@ namespace backendxd.Services
 
         public async Task<TrackDto2?> GetSimilarTrackAsync(string artist, string track, List<string> exclude)
         {
-            string apiKey = "4d8d972f782abe5adfe7a8917e3c6e3d";
+            string apiKey = "2852e900527a499032a3066ae34bb7ca";
             string workerUrl = "https://delicate-tooth-0e89.wellernam1788.workers.dev/";
+            string workerUrl2 = "https://render-worker-zjwk.onrender.com";
+
             using var client = new HttpClient();
+
+            
 
             try
             {
                 // Лимит 100, чтобы было из чего выбирать после фильтрации
                 string lastFmUrl = $"https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}&api_key={apiKey}&format=json&limit=100";
+                System.Diagnostics.Debug.WriteLine(lastFmUrl);
                 string finalUrl = $"{workerUrl}?url={Uri.EscapeDataString(lastFmUrl)}";
+                System.Diagnostics.Debug.WriteLine(finalUrl);
 
-                var response = await client.GetFromJsonAsync<JsonElement>(finalUrl);
+
+                string rawLastFmUrl = $"https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist={artist}&track={track}&api_key={apiKey}&format=json&limit=100";
+                System.Diagnostics.Debug.WriteLine("rawLastFmUrl  "+rawLastFmUrl);
+
+                // Кодируем всю колбасу целиком один раз для параметра ?url=
+                string finalUrl2 = $"{workerUrl2}?url={Uri.EscapeDataString(rawLastFmUrl)}";
+                System.Diagnostics.Debug.WriteLine("final2  " + finalUrl2);
+
+                var response = await client.GetFromJsonAsync<JsonElement>(finalUrl2);
 
                 if (response.TryGetProperty("similartracks", out var similarTracks))
                 {

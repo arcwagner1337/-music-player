@@ -1,6 +1,8 @@
-﻿using MusicAppFront.Models;
+﻿using MusicAppFront.browserMusicPlayer;
+using MusicAppFront.Models;
 using MusicAppFront.Views.Pages;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -10,6 +12,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using static MusicAppFront.browserMusicPlayer.BrowserMusicPlayer;
 using static MusicAppFront.Models.SearchResultDto;
 
 namespace MusicAppFront.Views.Windows
@@ -21,16 +24,19 @@ namespace MusicAppFront.Views.Windows
         private FavoritesPage _favoritesPage;
         private PlaylistsPage _playlistsPage;
         private MaxFlowPage _maxFlowPage;
+        private BrowserMusicPlayer _browserMusicPlayer;
 
-        private readonly HttpClient _httpClient;
+        private HttpClient _client = new HttpClient();
+
+
 
 
         public MainWindow()
         {
             InitializeComponent();
 
-            _httpClient = new HttpClient();
-            _httpClient.BaseAddress = new Uri("https://localhost:7296/");
+            _client = new HttpClient();
+            _client.BaseAddress = new Uri("https://localhost:7296/");
 
             _homePage = new HomePage();
             _profilePage = new ProfilePage();
@@ -38,81 +44,45 @@ namespace MusicAppFront.Views.Windows
             _playlistsPage = new PlaylistsPage();
             _maxFlowPage = new MaxFlowPage();
             MainFrame.Navigate(_homePage);
-            GlobalPlayer.OnPlayingStarted += () =>
+            _browserMusicPlayer = new BrowserMusicPlayer(this);
+            _browserMusicPlayer.InitBrowser();
+        }
+
+
+        private async void GlobalPlayPauseBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_browserMusicPlayer._isPlayerReady) return;
+
+            try
             {
-                
-                Dispatcher.Invoke(() =>
+                // 1. Проверяем, загружен ли вообще какой-либо медиапоток в видеоплеер браузера
+                string currentSrc = await HiddenBrowser.ExecuteScriptAsync(
+                    "document.querySelector('video') ? document.querySelector('video').currentSrc : ''"
+                );
+
+                // Убираем лишние кавычки, которые может вернуть ExecuteScriptAsync
+                currentSrc = currentSrc?.Trim('"') ?? "";
+
+                // 2. Если в плеере пусто и ничего не загружалось — кнопка ничего не делает (или можно включить дефолтный трек)
+                if (string.IsNullOrEmpty(currentSrc) || currentSrc == "null")
                 {
-                    GlobalPlayPauseBtn.Content = "\uE103";
-                    GlobalPlayPauseBtn.Padding = new Thickness(0);
-                });
-            };
-
-            GlobalPlayer.OnPlayingPaused += () =>
-            {
-
-                Dispatcher.Invoke(() =>
-                {
-                    GlobalPlayPauseBtn.Content = "\uE102";
-                    GlobalPlayPauseBtn.Padding = new Thickness(2, 0, 0, 0);
-                });
-            };
-
-            GlobalPlayer.OnTrackChanged += () => {
-                var track = GlobalPlayer.CurrentTrack;
-                if (track != null)
-                {
-                    Dispatcher.Invoke(() => {
-                        BottomTrackTitle.Text = track.Title;
-                        BottomTrackArtist.Text = track.Author;
-
-                        // Обновляем обложку
-                        if (!string.IsNullOrEmpty(track.ImageUrl))
-                        {
-                            try
-                            {
-                                BottomTrackImage.Source = new BitmapImage(new Uri(track.ImageUrl));
-                                BottomTrackImage.Visibility = Visibility.Visible;
-                                //BottomTrackPlaceholder.Visibility = Visibility.Collapsed;
-                            }
-                            catch
-                            {
-                                // Если ссылка битая или формат странный
-                                ShowPlaceholder();
-                            }
-                        }
-                        else
-                        {
-                            ShowPlaceholder();
-                        }
-                    });
+                    return;
                 }
-            };
 
-
-
-
-            long currentTotalMs = 0; // Запомним текущую длину трека
-
-            GlobalPlayer.OnLengthChanged += (totalMs) => {
-                currentTotalMs = totalMs;
-                var time = TimeSpan.FromMilliseconds(totalMs);
-                Dispatcher.Invoke(() => {
-                    TotalTimeText.Text = string.Format("{0}:{1:D2}", (int)time.TotalMinutes, time.Seconds);
-                    TimelineSlider.Maximum = totalMs;
-                });
-            };
-
-            GlobalPlayer.OnTimeChanged += (currentMs) => {
-                var time = TimeSpan.FromMilliseconds(currentMs);
-                Dispatcher.Invoke(() => {
-                    CurrentTimeText.Text = string.Format("{0}:{1:D2}", (int)time.TotalMinutes, time.Seconds);
-                    if (!TimelineSlider.IsMouseCaptureWithin) // Чтобы ползунок не прыгал, когда мы его тащим
-                    {
-                        TimelineSlider.Value = currentMs;
-                    }
-                });
-            };
+                // 3. Если трек загружен — дергаем play/pause в зависимости от текущего состояния
+                if (_browserMusicPlayer._isPlaying)
+                {
+                    await HiddenBrowser.ExecuteScriptAsync("var v = document.querySelector('video'); if(v) v.pause();");
+                }
+                else
+                {
+                    await HiddenBrowser.ExecuteScriptAsync("var v = document.querySelector('video'); if(v) v.play();");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Ошибка глобального переключения Play/Pause: {ex.Message}");
+            }
         }
 
         private void ShowPlaceholder()
@@ -121,53 +91,33 @@ namespace MusicAppFront.Views.Windows
             //BottomTrackPlaceholder.Visibility = Visibility.Visible;
         }
 
-        private void TimelineSlider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        private void TimelineSlider_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (TimelineSlider.Maximum > 0)
-            {
-                // Рассчитываем относительную позицию (от 0.0 до 1.0)
-                float seekPos = (float)(TimelineSlider.Value / TimelineSlider.Maximum);
-
-                // Отправляем в VLC
-                GlobalPlayer.Seek(seekPos);
-
-                Debug.WriteLine($"[VLC] Перемотка на: {seekPos * 100}%");
-            }
+            _browserMusicPlayer.TimelineSlider_PreviewMouseLeftButtonDown(sender, e); 
         }
+
+        private void TimelineSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            _browserMusicPlayer.TimelineSlider_ValueChanged(sender, e);
+
+        }
+
+
+        private void TimelineSlider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
+        {
+            _browserMusicPlayer.TimelineSlider_DragStarted(sender, e);
+        }
+
+        private async void TimelineSlider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+        {
+           _browserMusicPlayer.TimelineSlider_DragCompleted(sender, e);
+        }
+
+
 
         private async void BtnNext_Click(object sender, RoutedEventArgs e)
         {
-            // 1. Проверяем, открыта ли сейчас страница альбома
-            if (MainFrame.Content is InfoPlaylistPage albumPage)
-            {
-                // Вызываем метод в InfoPlaylistPage, который найдет следующий трек в списке
-                await albumPage.PlayNextTrack();
-            }
-            else
-            {
-                // 2. Если мы в поиске, вызываем твой алгоритм подбора похожего трека
-                //PlayRecommendedTrack();
-            }
-        }
 
-        private void GlobalPlayPause_Click(object sender, RoutedEventArgs e)
-        {
-            //if (GlobalPlayer.CurrentTrack == null) return;
-
-            GlobalPlayer.TogglePause();
-
-            // Ручной переключатель: если в контенте треугольник — ставим палочки, и наоборот
-            
-            if (GlobalPlayPauseBtn.Content.Equals("\uE102"))
-            {
-                GlobalPlayPauseBtn.Content = "\uE103";
-                GlobalPlayPauseBtn.Padding = new Thickness(0);
-            }
-            else
-            {
-                GlobalPlayPauseBtn.Content = "\uE102";
-                GlobalPlayPauseBtn.Padding = new Thickness(2, 0, 0, 0);
-            }
         }
 
 
@@ -236,14 +186,14 @@ namespace MusicAppFront.Views.Windows
                 {
                     // Делаем запрос. Используем GetFromJsonAsync, он сам десериализует ответ
                     // Если бэк требует токен, добавим заголовок (как обсуждали раньше)
-                    var results = await _httpClient.GetFromJsonAsync<SearchResultDto>(
+                    var results = await _client.GetFromJsonAsync<SearchResultDto>(
                         $"api/music/search?query={Uri.EscapeDataString(SearchBox.Text)}"
                     );
 
                     if (results != null)
                     {
                         // Передаем результаты в конструктор страницы
-                        MainFrame.Navigate(new SearchPage(results));
+                        MainFrame.Navigate(new SearchPage(results, this, _browserMusicPlayer));
                     }
                 }
                 catch (Exception ex)

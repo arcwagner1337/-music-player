@@ -7,6 +7,15 @@
       mc:Ignorable="d" 
       Title="SearchPage">
 
+    <Page.Resources>
+        <Storyboard x:Key="RotateAnimationS">
+            <DoubleAnimation Storyboard.TargetName="LoadingIconS"
+                   Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                   From="0" To="360" Duration="0:0:1" 
+                   RepeatBehavior="Forever"/>
+        </Storyboard>
+    </Page.Resources>
+
     <ScrollViewer VerticalScrollBarVisibility="Hidden">
     <StackPanel Margin="30,20">
         <TextBlock Text="Результаты поиска:" 
