@@ -142,8 +142,8 @@ namespace MusicAppFront.Views.Pages
                     _lastPlayedButton = btn;
 
                     // Обновляем текст и обложку на нижней панели MainWindow
-                    _mainWindow.BottomTrackTitle.Text = trackData.Title;
-                    _mainWindow.BottomTrackArtist.Text = trackData.Author;
+                    //_mainWindow.BottomTrackTitle.Text = trackData.Title;
+                    //_mainWindow.BottomTrackArtist.Text = trackData.Author;
 
                     if (!string.IsNullOrEmpty(trackData.ImageUrl))
                     {

@@ -183,6 +183,8 @@ namespace MusicAppFront.browserMusicPlayer
             //trackName.Text = $"{track.Artist} - {track.Title}";
             _mainWindow.TimelineSlider.Maximum = track.Duration;
             _mainWindow.TimelineSlider.Value = 0;
+            _mainWindow.BottomTrackTitle.Text = track.Title;
+            _mainWindow.BottomTrackArtist.Text = track.Artist;
 
             // 4. Предзагрузка
             _preloadCts?.Cancel();
