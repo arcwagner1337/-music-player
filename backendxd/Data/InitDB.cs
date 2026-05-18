@@ -27,7 +27,7 @@ namespace backendxd.Data
             expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '15 minutes' 
         );";
 
-            await context.Database.ExecuteSqlRawAsync(sql);
+            //await context.Database.ExecuteSqlRawAsync(sql);
         }
 
 

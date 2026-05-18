@@ -2,6 +2,8 @@
 using MusicAppFront.Models;
 using MusicAppFront.Views.Windows;
 using System;
+
+
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -124,6 +126,7 @@ namespace MusicAppFront.Views.Pages
                         Artist = artist,
                         Title = track,
                         StreamUrl = data[0],
+                        //StreamUrl = "https://music.youtube.com/watch?v=0CNPR2qNzxk&list=RDAMVMWdoXZf-FZyA",
                         Duration = duration
                     };
 

@@ -6,12 +6,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+
 using static MusicAppFront.browserMusicPlayer.BrowserMusicPlayer;
 using static MusicAppFront.Models.SearchResultDto;
 
@@ -85,10 +87,16 @@ namespace MusicAppFront.Views.Windows
             }
         }
 
-        private void ShowPlaceholder()
+
+
+        private void NextBtn_Click(object sender, RoutedEventArgs e)
         {
-            BottomTrackImage.Visibility = Visibility.Collapsed;
-            //BottomTrackPlaceholder.Visibility = Visibility.Visible;
+            _browserMusicPlayer.BtnNext_Click(sender, e);
+        }
+
+        private void PrevBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _browserMusicPlayer.BtnPrev_Click(sender, e);
         }
 
         private void TimelineSlider_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

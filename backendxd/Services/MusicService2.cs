@@ -284,8 +284,9 @@ namespace backendxd.Services
                 {
                     double seconds = video.Duration?.TotalSeconds ?? 0;
                     string durationStr = seconds.ToString("G", System.Globalization.CultureInfo.InvariantCulture);
+                    string musicUrl = video.Url.Replace("www", "music");
 
-                    return new List<string?> { video.Url, durationStr };
+                    return new List<string?> { musicUrl, durationStr };
                 }
             }
             return null;

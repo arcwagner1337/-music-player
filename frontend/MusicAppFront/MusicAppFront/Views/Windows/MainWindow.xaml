@@ -265,7 +265,8 @@
 
                             <Button x:Name="PrevBtn" Content="&#xE892;" 
                                     FontFamily="Segoe MDL2 Assets" 
-                                    Style="{StaticResource PlayerControlBtn}"/>
+                                    Style="{StaticResource PlayerControlBtn}"
+                                    Click="PrevBtn_Click"/>
 
                             <Button x:Name="GlobalPlayPauseBtn" Content="&#xE102;" 
                                 FontFamily="Segoe MDL2 Assets" 
@@ -280,7 +281,8 @@
 
                             <Button x:Name="NextBtn" Content="&#xE893;" 
                                     FontFamily="Segoe MDL2 Assets" 
-                                    Style="{StaticResource PlayerControlBtn}"/>
+                                    Style="{StaticResource PlayerControlBtn}"
+                                    Click="NextBtn_Click"/>
 
                             <Button x:Name="CycleBtn" Content="&#xE8EE;" 
                                     FontFamily="Segoe MDL2 Assets" 

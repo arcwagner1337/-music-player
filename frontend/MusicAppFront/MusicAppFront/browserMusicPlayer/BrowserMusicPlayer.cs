@@ -25,6 +25,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Windows.Threading;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace MusicAppFront.browserMusicPlayer
 {
@@ -103,6 +104,8 @@ namespace MusicAppFront.browserMusicPlayer
         {
             try
             {
+                if (token.IsCancellationRequested) return;
+
                 if (_playbackQueue.Count >= 3) return;
 
                 // Добавляем текущий трек в глобальную историю (чтобы он не выпал в рекомендациях)
@@ -117,7 +120,7 @@ namespace MusicAppFront.browserMusicPlayer
 
                 string url = $"https://localhost:7296/api/music/GetNextRecommended?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}{excludeParams}";
 
-                string json = await _client.GetStringAsync(url);
+                string json = await _client.GetStringAsync(url, token);
                 Console.WriteLine(json);
                 if (token.IsCancellationRequested) return;
 
@@ -126,6 +129,8 @@ namespace MusicAppFront.browserMusicPlayer
 
                 if (data != null)
                 {
+                    if (token.IsCancellationRequested) return;
+
                     double.TryParse((string)data.duration, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double dur);
 
                     var nextTrack = new TrackWithStreamDto
@@ -139,13 +144,18 @@ namespace MusicAppFront.browserMusicPlayer
 
                     _playbackQueue.Enqueue(nextTrack);
 
-                    // Если в очереди всё еще мало треков, можно вызвать рекурсивно для следующего
-                    if (_playbackQueue.Count < 2)
-                    {
-                        _ = PreloadRecommendationsAsync(nextTrack.Artist, nextTrack.Title, token);
-                    }
+                    //// Если в очереди всё еще мало треков, можно вызвать рекурсивно для следующего
+                    //if (_playbackQueue.Count < 2)
+                    //{
+                    //    _ = PreloadRecommendationsAsync(nextTrack.Artist, nextTrack.Title, token);
+                    //}
                 }
             }
+            catch (OperationCanceledException)
+            {
+                // Это нормальное поведение, когда мы отменили токен при переключении трека — просто игнорируем
+            }
+
             catch (Exception ex)
             {
                 Console.WriteLine("Ошибка предзагрузки: " + ex.Message);
@@ -164,6 +174,8 @@ namespace MusicAppFront.browserMusicPlayer
             // 2. Управление историей будущего (НОВАЯ ЛОГИКА)
             if (clearForward)
                 _forwardStack.Clear(); // Если включили новый трек вручную, "будущее" сбрасывается
+
+            _playbackQueue.Clear();
 
             _currentlyPlayingTrack = track;
 
@@ -191,6 +203,14 @@ namespace MusicAppFront.browserMusicPlayer
             var options = new Microsoft.Web.WebView2.Core.CoreWebView2EnvironmentOptions("--autoplay-policy=no-user-gesture-required");
             var env = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(null, null, options);
             await _mainWindow.HiddenBrowser.EnsureCoreWebView2Async(env);
+
+            _mainWindow.HiddenBrowser.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = false;
+
+            // 2. Автоматически жмем "Уйти" (Confirm) на любые js-предупреждения, включая beforeunload
+            _mainWindow.HiddenBrowser.CoreWebView2.ScriptDialogOpening += (s, args) =>
+            {
+                args.Accept(); // Принудительно жмет "ОК" / "Уйти" на любые алерты
+            };
 
             _mainWindow.HiddenBrowser.CoreWebView2.AddWebResourceRequestedFilter("*", Microsoft.Web.WebView2.Core.CoreWebView2WebResourceContext.Media);
             _mainWindow.HiddenBrowser.CoreWebView2.WebResourceRequested += (s, args) => {
@@ -662,39 +682,42 @@ var checkEndedInterval = setInterval(function() {
 
 
 
-        //private async void BtnPrev_Click(object sender, RoutedEventArgs e)
-        //{
-        //    if (_historyStack.Count == 0)
-        //    {
-        //        TxtStatus.Text = "Это самый первый трек";
-        //        return;
-        //    }
+        public async void BtnPrev_Click(object sender, RoutedEventArgs e)
+        {
+            if (_historyStack.Count == 0)
+            {
+                //TxtStatus.Text = "Это самый первый трек";
+                return;
+            }
 
-        //    try
-        //    {
-        //        //BtnPrev.IsEnabled = false;
+            try
+            {
+                //BtnPrev.IsEnabled = false;
 
-        //        // Текущий трек отправляем в историю "будущего"
-        //        if (_currentlyPlayingTrack != null)
-        //            _forwardStack.Push(_currentlyPlayingTrack);
+                // Текущий трек отправляем в историю "будущего"
+                if (_currentlyPlayingTrack != null)
+                    _forwardStack.Push(_currentlyPlayingTrack);
 
-        //        // Достаем трек из прошлого
-        //        var previousTrack = _historyStack.Pop();
+                // Достаем трек из прошлого
+                var previousTrack = _historyStack.Pop();
 
-        //        // Играем его. 
-        //        // false -> не добавлять в историю прошлого повторно (мы его оттуда только что взяли)
-        //        // false -> НЕ очищать стек будущего, иначе мы потеряем цепочку для кнопки "Вперед"
-        //        await PlayTrack(previousTrack, addToHistory: false, clearForward: false);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        TxtStatus.Text = $"Ошибка назад: {ex.Message}";
-        //    }
-        //    finally
-        //    {
-        //        //BtnPrev.IsEnabled = true;
-        //    }
-        //}
+
+
+
+                // Играем его. 
+                // false -> не добавлять в историю прошлого повторно (мы его оттуда только что взяли)
+                // false -> НЕ очищать стек будущего, иначе мы потеряем цепочку для кнопки "Вперед"
+                await PlayTrack(previousTrack, addToHistory: false, clearForward: false);
+            }
+            catch (Exception ex)
+            {
+                //TxtStatus.Text = $"Ошибка назад: {ex.Message}";
+            }
+            finally
+            {
+                //BtnPrev.IsEnabled = true;
+            }
+        }
 
 
         private async Task PlayNextTrackAsync()
@@ -703,6 +726,10 @@ var checkEndedInterval = setInterval(function() {
             if (_forwardStack.Count > 0)
             {
                 var nextFromHistory = _forwardStack.Pop();
+
+                
+
+
                 // true -> добавляем текущий трек в историю прошлого
                 // false -> НЕ очищаем стек будущего, так как мы сами из него только что взяли элемент
                 await PlayTrack(nextFromHistory, addToHistory: true, clearForward: false);
@@ -713,6 +740,8 @@ var checkEndedInterval = setInterval(function() {
             if (_playbackQueue.Count > 0)
             {
                 var next = _playbackQueue.Dequeue();
+
+
                 await PlayTrack(next);
                 return;
             }
@@ -737,22 +766,22 @@ var checkEndedInterval = setInterval(function() {
 
 
 
-        //private async void BtnNext_Click(object sender, RoutedEventArgs e)
-        //{
-        //    try
-        //    {
-        //        //BtnNext.IsEnabled = false;
-        //        await PlayNextTrackAsync();
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        TxtStatus.Text = $"Ошибка: {ex.Message}";
-        //    }
-        //    finally
-        //    {
-        //        //BtnNext.IsEnabled = true;
-        //    }
-        //}
+        public async void BtnNext_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                //BtnNext.IsEnabled = false;
+                await PlayNextTrackAsync();
+            }
+            catch (Exception ex)
+            {
+                //TxtStatus.Text = $"Ошибка: {ex.Message}";
+            }
+            finally
+            {
+                //BtnNext.IsEnabled = true;
+            }
+        }
 
 
         public void TimelineSlider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
