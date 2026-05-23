@@ -94,7 +94,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="1:24" x:Name="BIG_CurrentTime"
+                        <TextBlock Text="0:00" x:Name="BIG_CurrentTime"
                                 Foreground="{StaticResource SecondaryText}" 
                                 FontSize="12" 
                                 VerticalAlignment="Center" 
@@ -110,7 +110,7 @@
                                 Thumb.DragCompleted="BIG_TimelineSlider_DragCompleted"
                                 PreviewMouseLeftButtonDown="BIG_TimelineSlider_PreviewMouseLeftButtonDown"
                                 ValueChanged="BIG_TimelineSlider_ValueChanged"/>
-                        <TextBlock Text="3:45" x:Name="BIG_TotalTime"
+                        <TextBlock Text="0:00" x:Name="BIG_TotalTime"
                                 Grid.Column="2" 
                                 Foreground="{StaticResource SecondaryText}" 
                                 FontSize="12" 

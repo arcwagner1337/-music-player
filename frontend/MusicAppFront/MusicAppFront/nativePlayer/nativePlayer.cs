@@ -946,19 +946,50 @@ namespace testPlayer
         }
 
 
+        //public void TimelineSlider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
+        //{
+        //    _isDragging = true;
+
+        //}
+
         public void TimelineSlider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
         {
+            // Включаем защиту для мелкого слайдера
             _isDragging = true;
 
+            // Включаем защиту для большого слайдера, если его страница открыта
+            if (FullPlayerPage != null)
+            {
+                FullPlayerPage._isDraggingBigSlider = true;
+            }
         }
 
         public async void TimelineSlider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
         {
-            _mediaPlayer.Time = (long)(_mainWindow.TimelineSlider.Value * 1000);
-            //_mediaPlayer.Time = (long)(FullPlayerPage.BIG_Slider.Value * 1000);
-            // обратно в миллисекунды
+            var slider = sender as System.Windows.Controls.Slider;
+            if (slider != null)
+            {
+                // ИСПРАВЛЕНО: Берем значение ТОГО слайдера, который юзер только что отпустил!
+                _mediaPlayer.Time = (long)(slider.Value * 1000);
+            }
+
+            // Выключаем все защиты обратно
             _isDragging = false;
+            if (FullPlayerPage != null)
+            {
+                FullPlayerPage._isDraggingBigSlider = false;
+            }
         }
+
+
+
+        //public async void TimelineSlider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+        //{
+        //    _mediaPlayer.Time = (long)(_mainWindow.TimelineSlider.Value * 1000);
+        //    //_mediaPlayer.Time = (long)(FullPlayerPage.BIG_Slider.Value * 1000);
+        //    // обратно в миллисекунды
+        //    _isDragging = false;
+        //}
 
         public async void TimelineSlider_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
@@ -983,8 +1014,17 @@ namespace testPlayer
 
             // 5. Заставляем UI временно замереть, как при перетаскивании
             _isDragging = true;
+
+            if (FullPlayerPage != null)
+            {
+                FullPlayerPage._isDraggingBigSlider = true;
+            }
             _mediaPlayer.Time = (long)(newValue * 1000);
             _isDragging = false;
+            if (FullPlayerPage != null)
+            {
+                FullPlayerPage._isDraggingBigSlider = false;
+            }
 
             // 8. Возвращаем всё назад
             _isDragging = false;
