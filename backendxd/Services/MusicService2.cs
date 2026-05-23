@@ -82,7 +82,7 @@ namespace backendxd.Services
 
                 var uniqueAlbums = items
                     .GroupBy(x => x.GetProperty("album").GetProperty("id").GetInt64());
-                    
+
 
                 foreach (var albGroup in uniqueAlbums)
                 {
@@ -524,9 +524,9 @@ namespace backendxd.Services
             string workerUrl = "https://delicate-tooth-0e89.wellernam1788.workers.dev/";
             string workerUrl2 = "https://render-worker-zjwk.onrender.com";
 
-            using var client = new HttpClient();
+            using var client = new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) => true });
 
-            
+
 
             try
             {
@@ -538,7 +538,7 @@ namespace backendxd.Services
 
 
                 string rawLastFmUrl = $"https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist={artist}&track={track}&api_key={apiKey}&format=json&limit=100";
-                System.Diagnostics.Debug.WriteLine("rawLastFmUrl  "+rawLastFmUrl);
+                System.Diagnostics.Debug.WriteLine("rawLastFmUrl  " + rawLastFmUrl);
 
                 // Кодируем всю колбасу целиком один раз для параметра ?url=
                 string finalUrl2 = $"{workerUrl2}?url={Uri.EscapeDataString(rawLastFmUrl)}";
@@ -549,27 +549,28 @@ namespace backendxd.Services
                 if (response.TryGetProperty("similartracks", out var similarTracks))
                 {
                     var trackList = similarTracks.GetProperty("track").EnumerateArray()
-     // Фильтруем исходные JsonElement, не изменяя их тип:
-     .Where(t => {
-         // Безопасно извлекаем значения (с проверкой на существование свойств)
-         string? artist = t.TryGetProperty("artist", out var artEl) && artEl.TryGetProperty("name", out var artNameEl)
-             ? artNameEl.GetString()
-             : null;
+                     // Фильтруем исходные JsonElement, не изменяя их тип:
+                     .Where(t =>
+                     {
+                         // Безопасно извлекаем значения (с проверкой на существование свойств)
+                         string? artist = t.TryGetProperty("artist", out var artEl) && artEl.TryGetProperty("name", out var artNameEl)
+                             ? artNameEl.GetString()
+                             : null;
 
-         string? title = t.TryGetProperty("name", out var nameEl)
-             ? nameEl.GetString()
-             : null;
+                         string? title = t.TryGetProperty("name", out var nameEl)
+                             ? nameEl.GetString()
+                             : null;
 
-         // Если имя артиста или трека не найдены — пропускаем элемент
-         if (artist == null || title == null)
-             return false;
+                         // Если имя артиста или трека не найдены — пропускаем элемент
+                         if (artist == null || title == null)
+                             return false;
 
-         // Проверяем по вашему списку исключений (регистронезависимо)
-         string key = $"{artist.ToLower()} - {title.ToLower()}";
-         return !exclude.Contains(key);
-     })
-     // Собираем отфильтрованные JsonElement в итоговый список
-     .ToList();
+                         // Проверяем по вашему списку исключений (регистронезависимо)
+                         string key = $"{artist.ToLower()} - {title.ToLower()}";
+                         return !exclude.Contains(key);
+                     })
+                     // Собираем отфильтрованные JsonElement в итоговый список
+                     .ToList();
 
 
 
@@ -614,6 +615,73 @@ namespace backendxd.Services
 
             return null;
         }
+
+
+        public async Task<TrackDto2?> GetTopTracksByArtistAsync(string artist, List<string> exclude)
+        {
+            string apiKey = "2852e900527a499032a3066ae34bb7ca";
+            string workerUrl2 = "https://render-worker-zjwk.onrender.com";
+
+            using var client = new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) => true });
+
+            try
+            {
+                // Метод artist.gettoptracks вернет самые популярные треки этого исполнителя
+                string rawLastFmUrl = $"https://audioscrobbler.com{Uri.EscapeDataString(artist)}&api_key={apiKey}&format=json&limit=50";
+                string finalUrl2 = $"{workerUrl2}?url={Uri.EscapeDataString(rawLastFmUrl)}";
+
+                var response = await client.GetFromJsonAsync<JsonElement>(finalUrl2);
+
+                if (response.TryGetProperty("toptracks", out var topTracks))
+                {
+                    var trackList = topTracks.GetProperty("track").EnumerateArray()
+                        .Where(t =>
+                        {
+                            string? artName = t.TryGetProperty("artist", out var artEl) && artEl.TryGetProperty("name", out var artNameEl)
+                                ? artNameEl.GetString() : null;
+                            string? title = t.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+
+                            if (artName == null || title == null) return false;
+
+                            string key = $"{artName.ToLower()} - {title.ToLower()}";
+                            return !exclude.Contains(key);
+                        })
+                        .ToList();
+
+                    if (trackList.Count > 0)
+                    {
+                        // Выбираем случайный трек из топ-10 этого артиста
+                        var random = new Random();
+                        var selected = trackList[random.Next(0, Math.Min(10, trackList.Count))];
+
+                        string nextArtist = selected.GetProperty("artist").GetProperty("name").GetString();
+                        string nextTrack = selected.GetProperty("name").GetString();
+
+                        // Ищем обложку в Deezer
+                        string dzSearchUrl = $"https://api.deezer.com/search?q=artist:\"{Uri.EscapeDataString(nextArtist)}\" track:\"{Uri.EscapeDataString(nextTrack)}\"&limit=1";
+                        string imageUrl = "";
+                        try
+                        {
+                            var dzResponse = await client.GetFromJsonAsync<JsonElement>(dzSearchUrl);
+                            if (dzResponse.TryGetProperty("data", out var data) && data.GetArrayLength() > 0)
+                            {
+                                imageUrl = data.GetArrayLength() > 0 ? data.EnumerateArray().First().GetProperty("album").GetProperty("cover_big").GetString() : "";
+                            }
+                        }
+                        catch { }
+
+                        return new TrackDto2(nextTrack, nextArtist, "", nextArtist, nextTrack, imageUrl);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Ошибка фолбэка по артисту: {ex.Message}");
+            }
+
+            return null;
+        }
+
 
     }
 

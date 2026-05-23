@@ -51,13 +51,55 @@ namespace backendxd.Controllers
         }
 
 
-        [HttpGet("GetNextRecommended")]
-        public async Task<IActionResult> GetNextRecommended(string artist, string track, [FromQuery] string[] exclude)
-        {
-            // Передаем exclude в сервис
-            var excludedList = exclude?.Select(x => x.ToLower()).ToList() ?? new List<string>();
+        //[HttpGet("GetNextRecommended")]
+        //public async Task<IActionResult> GetNextRecommended(string artist, string track, [FromQuery] string[] exclude)
+        //{
+        //    // Передаем exclude в сервис
+        //    var excludedList = exclude?.Select(x => x.ToLower()).ToList() ?? new List<string>();
 
-            var recommended = await _musicService.GetSimilarTrackAsync(artist, track, excludedList);
+        //    var recommended = await _musicService.GetSimilarTrackAsync(artist, track, excludedList);
+        //    if (recommended == null) return NotFound();
+
+        //    var ytInfo = await _musicService.SearchOnYouTubeAsync3(recommended.Author, recommended.Title);
+        //    if (ytInfo == null) return NotFound();
+
+        //    return Ok(new
+        //    {
+        //        Artist = recommended.Author,
+        //        Title = recommended.Title,
+        //        ImageUrl = recommended.ImageUrl,
+        //        StreamUrl = ytInfo[0],
+        //        Duration = ytInfo[1]
+        //    });
+        //}
+
+
+        [HttpPost("GetNextRecommended")]
+        public async Task<IActionResult> GetNextRecommended([FromBody] GetNextRecommendedRequest request)
+        {
+
+            Console.WriteLine($"[server] artist: {request?.Artist}, track: {request?.Track}, exclude count: {request?.Exclude?.Count}");
+
+            var excludedList = request.Exclude?.Select(x => x.ToLower()).ToList() ?? new List<string>();
+
+            var recommended = await _musicService.GetSimilarTrackAsync(request.Artist, request.Track, excludedList);
+
+            if (recommended == null)
+            {
+                Console.WriteLine($"[server] ⚠️ Трек [{request.Track}] не найден в Last.fm. Запуск фолбэка по артисту [{request.Artist}]...");
+                recommended = await _musicService.GetTopTracksByArtistAsync(request.Artist, excludedList);
+            }
+
+
+            // fallback — ищем по другому артисту из истории
+            if (recommended == null && excludedList.Count > 0)
+            {
+                var randomPast = excludedList[new Random().Next(excludedList.Count)];
+                var parts = randomPast.Split(" - ", 2);
+                if (parts.Length == 2)
+                    recommended = await _musicService.GetSimilarTrackAsync(parts[0], parts[1], excludedList);
+            }
+
             if (recommended == null) return NotFound();
 
             var ytInfo = await _musicService.SearchOnYouTubeAsync3(recommended.Author, recommended.Title);
@@ -65,13 +107,21 @@ namespace backendxd.Controllers
 
             return Ok(new
             {
-                Artist = recommended.Author,
-                Title = recommended.Title,
-                ImageUrl = recommended.ImageUrl,
-                StreamUrl = ytInfo[0],
-                Duration = ytInfo[1]
+                artist = recommended.Author,
+                title = recommended.Title,
+                imageUrl = recommended.ImageUrl,
+                streamUrl = ytInfo[0],
+                duration = ytInfo[1]
             });
         }
+
+        public class GetNextRecommendedRequest
+        {
+            public string Artist { get; set; }
+            public string Track { get; set; }
+            public List<string> Exclude { get; set; }
+        }
+
 
         //public async Task GetStream(string artist, string track, int seek = 0)
         //{

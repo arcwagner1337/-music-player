@@ -25,8 +25,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using static MusicAppFront.browserMusicPlayer.BrowserMusicPlayer;
+using testPlayer;
 using static MusicAppFront.Models.SearchResultDto;
+using static testPlayer.NativePlayer;
 
 
 namespace MusicAppFront.Views.Pages
@@ -36,147 +37,198 @@ namespace MusicAppFront.Views.Pages
     /// </summary>
     public partial class SearchPage : Page
     {
-        private BrowserMusicPlayer _browserMusicPlayer;
+        //private BrowserMusicPlayer _browserMusicPlayer;
         private readonly MainWindow _mainWindow;
         private HttpClient _client = new HttpClient();
         private Button _lastPlayedButton;
         internal SearchResultDto.TrackDto2 _lastPlayedTrack;
+        private testPlayer.NativePlayer _nativePlayer;
 
         // Защита от спама кликами, пока идет тяжелый запрос к API
         private bool _isDataLoading = false;
-        public SearchPage(SearchResultDto results, MainWindow mainWindow, BrowserMusicPlayer player)
+        public SearchPage(SearchResultDto results, MainWindow mainWindow, NativePlayer player)
         {
             InitializeComponent();
             ArtistsList.ItemsSource = results.Artists;
             TracksList.ItemsSource = results.Tracks;
             AlbumsList.ItemsSource = results.Albums;
 
+
+
+            // 4. Ищем конкретный трек прямо в списке данных results.Tracks!
+            this.LayoutUpdated += (s, e) =>
+            {
+                if (_lastPlayedTrack != null && _lastPlayedButton == null)
+                {
+                    var listBoxItem = TracksList.ItemContainerGenerator.ContainerFromItem(_lastPlayedTrack) as ListBoxItem;
+                    if (listBoxItem != null)
+                    {
+                        _lastPlayedButton = GetButtonFromContainer(listBoxItem);
+                    }
+                }
+            };
+
             _mainWindow = mainWindow;
-            _browserMusicPlayer = player;
+            _nativePlayer = player;
+            //RefreshTrackIcons();
             //GlobalPlayer.Init();
         }
 
+        private Button GetButtonFromContainer(DependencyObject parent)
+        {
+            if (parent is Button button) return button;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                var result = GetButtonFromContainer(child);
+                if (result != null) return result;
+            }
+            return null;
+        }
+
+
+        //public void RefreshTrackIcons()
+        //{
+        //    var currentPlaying = _nativePlayer?._currentlyPlayingTrack;
+        //    bool isMediaPlayerPlaying = _nativePlayer?._mediaPlayer?.IsPlaying ?? false;
+
+        //    // 1. Сохраняем ссылку на текущий список треков
+        //    var tracks = TracksList.ItemsSource as System.Collections.IEnumerable;
+        //    if (tracks == null) return;
+
+        //    // 2. Обновляем флаги IsPlaying в данных
+        //    foreach (var item in tracks)
+        //    {
+        //        var trackData = item as SearchResultDto.TrackDto2;
+        //        if (trackData == null) continue;
+
+        //        if (currentPlaying != null &&
+        //            trackData.Title.Equals(currentPlaying.Title, StringComparison.OrdinalIgnoreCase) &&
+        //            trackData.Author.Equals(currentPlaying.Artist, StringComparison.OrdinalIgnoreCase))
+        //        {
+        //            trackData.IsPlaying = isMediaPlayerPlaying;
+        //            _lastPlayedTrack = trackData;
+        //        }
+        //        else
+        //        {
+        //            trackData.IsPlaying = false;
+        //        }
+        //    }
+
+        //    // 3. Жесткий пинок для ItemsControl: сбрасываем и накатываем список заново.
+        //    // Это заставит триггеры в XAML сработать и перерисовать Play/Pause мгновенно!
+        //    TracksList.ItemsSource = null;
+        //    TracksList.ItemsSource = tracks;
+        //}
+
         public async void TrackRow_Click(object sender, RoutedEventArgs e)
         {
-            if (!_browserMusicPlayer._isPlayerReady) return;
-
             var btn = sender as Button;
             var trackData = btn?.DataContext as SearchResultDto.TrackDto2;
 
             if (trackData == null || btn == null) return; // Защита от NullReference
+            if (_isDataLoading) return; // Защита от спама кликами
 
             string artist = trackData.Author;
             string track = trackData.Title;
 
-            // 1. Проверяем, загружено ли уже видео в WebView
-            string currentSrc = await _mainWindow.HiddenBrowser.ExecuteScriptAsync("document.querySelector('video') ? document.querySelector('video').currentSrc : ''");
-            var currentPlaying = _browserMusicPlayer._currentlyPlayingTrack;
+            // 1. ЛОГИКА ПОВТОРНОГО КЛИКА (Ставим на паузу или снимаем с нее)
+            var currentPlaying = _nativePlayer._currentlyPlayingTrack;
 
-            // 2. ЛОГИКА ПОВТОРНОГО КЛИКА (Тыкнули на тот же самый трек, который уже играет/на паузе)
-            if (!string.IsNullOrEmpty(currentSrc) && currentSrc != "null" && currentSrc != "\"\"" &&
-                currentPlaying != null &&
+            if (currentPlaying != null &&
                 currentPlaying.Title.Equals(track, StringComparison.OrdinalIgnoreCase) &&
                 currentPlaying.Artist.Equals(artist, StringComparison.OrdinalIgnoreCase))
             {
-                // Переключаем паузу в WebView2
-                await _mainWindow.HiddenBrowser.ExecuteScriptAsync(_browserMusicPlayer._isPlaying ? "document.querySelector('video').pause();" : "document.querySelector('video').play();");
+                if (_nativePlayer._mediaPlayer.IsPlaying)
+                {
+                    _nativePlayer._mediaPlayer.Pause();
+                    trackData.IsPlaying = false;
 
-                // Инвертируем иконку на самой строчке плеера (▶ / ⏸)
-                trackData.IsPlaying = !_browserMusicPlayer._isPlaying;
+                    // Синхронизируем глобальную кнопку внизу окна
+                    _mainWindow.GlobalPlayPauseBtn.Content = "\uE102"; // Иконка Play
+                    _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(2, 0, 0, 0);
+                }
+                else
+                {
+                    _nativePlayer._mediaPlayer.Play();
+                    trackData.IsPlaying = true;
+
+                    _mainWindow.GlobalPlayPauseBtn.Content = "\uE103"; // Иконка Pause
+                    _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(0);
+                }
+                
                 return;
             }
 
-            // 3. ЛОГИКА ВКЛЮЧЕНИЯ НОВОГО ТРЕКА
+            // 2. ЛОГИКА ВКЛЮЧЕНИЯ НОВОГО ТРЕКА
             try
             {
-                // ПУНКТ 3: Предыдущий трек возвращаем к изначальному состоянию
-                if (_lastPlayedTrack != null)
-                {
-                    _lastPlayedTrack.IsPlaying = false; // Сбрасываем зеленую подсветку
-                }
-                if (_lastPlayedButton != null)
-                {
-                    _lastPlayedButton.IsEnabled = true; // Активируем кнопку обратно
-                }
+                _isDataLoading = true;
 
-                // ПУНКТ 1: Пошла загрузка нового трека
-                btn.IsEnabled = false; // Твой XAML-стиль мгновенно прячет '▶', показывает '⌛' и крутит анимацию
-                _mainWindow.BottomTrackTitle.Text = "Поиск...";
+                // Сбрасываем визуальное состояние старого трека
+                if (_lastPlayedTrack != null) _lastPlayedTrack.IsPlaying = false;
+                if (_lastPlayedButton != null) _lastPlayedButton.IsEnabled = true;
 
-                // Синхронно запускаем крутилку загрузки на большой нижней кнопке
-                //_mainWindow.Dispatcher.Invoke(() =>
-                //{
-                //    _mainWindow.GlobalPlayPauseBtn.Content = "\uE10C";
-                //    _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(0);
-                //    var sb = _mainWindow.FindResource("RotateAnimation") as System.Windows.Media.Animation.Storyboard;
-                //    sb?.Begin(_mainWindow, true);
-                //});
+                btn.IsEnabled = false;
+                _mainWindow.BottomTrackTitle.Text = "Поиск ссылки...";
 
-                // Запрос ссылки на стрим с твоего бэкенда
+                // Шаг А: Спрашиваем у локального бэкенда YouTube URL
                 string url = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}";
                 string json = await _client.GetStringAsync(url);
-
                 var data = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json);
 
                 if (data != null && data.Count >= 2)
                 {
                     double.TryParse(data[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double duration);
-                    var firstTrack = new TrackWithStreamDto
+
+                    var trackToBePlayed = new TrackWithStreamDto
                     {
                         Artist = artist,
                         Title = track,
-                        StreamUrl = data[0],
-                        //StreamUrl = "https://music.youtube.com/watch?v=0CNPR2qNzxk&list=RDAMVMWdoXZf-FZyA",
-                        Duration = duration
+                        YtUrl = data[0], // Сюда падает YouTube URL из бэкенда
+                        Duration = duration,
+                        IsResolved = false,
+                        ImageUrl = trackData.ImageUrl // Сохраняем обложку
                     };
 
-                    // Передаем трек в WebView2
-                    await _browserMusicPlayer.PlayTrack(firstTrack);
+                    _mainWindow.BottomTrackTitle.Text = "Резолв аудио...";
 
-                    // ПУНКТ 2: Трек загрузился и отправлен на воспроизведение
-                    trackData.IsPlaying = true; // Триггер стиля сам перекрасит иконку в зеленую '⏸'
-                    btn.IsEnabled = true;       // Возвращаем кнопку в строй
+                    // Шаг Б: Тяжелый резолв через ваши питоновские yt-dlp прокси-серверы
+                    // Вызываем метод резолва из вашего класса плеера
+                    trackToBePlayed.StreamUrl = await _nativePlayer.ResolveAudioUrlAsync(trackToBePlayed.YtUrl);
+                    trackToBePlayed.IsResolved = true;
 
-                    // Запоминаем текущий трек и кнопку как "предыдущие" для следующего клика
+                    if (string.IsNullOrEmpty(trackToBePlayed.StreamUrl))
+                    {
+                        MessageBox.Show("Не удалось получить аудиопоток. Все сервера yt-dlp недоступны.");
+                        btn.IsEnabled = true;
+                        return;
+                    }
+
+                    // Шаг В: Скармливаем готовую прямую ссылку в VLC
+                    await _nativePlayer.PlayTrack(trackToBePlayed, addToHistory: true, clearForward: true);
+
+                    // Меняем иконки на кнопках на состояние "Играет"
+                    trackData.IsPlaying = true;
+                    btn.IsEnabled = true;
+
+                    _mainWindow.GlobalPlayPauseBtn.Content = "\uE103"; // Пауза
+                    _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(0);
+                    
                     _lastPlayedTrack = trackData;
                     _lastPlayedButton = btn;
-
-                    // Обновляем текст и обложку на нижней панели MainWindow
-                    //_mainWindow.BottomTrackTitle.Text = trackData.Title;
-                    //_mainWindow.BottomTrackArtist.Text = trackData.Author;
-
-                    if (!string.IsNullOrEmpty(trackData.ImageUrl))
-                    {
-                        try
-                        {
-                            var bitmap = new System.Windows.Media.Imaging.BitmapImage(new Uri(trackData.ImageUrl));
-                            _mainWindow.BottomTrackImage.Source = bitmap;
-                            _mainWindow.BottomTrackImage.Visibility = Visibility.Visible;
-                        }
-                        catch
-                        {
-                            _mainWindow.BottomTrackImage.Visibility = Visibility.Collapsed;
-                        }
-                    }
-                    else
-                    {
-                        _mainWindow.BottomTrackImage.Visibility = Visibility.Collapsed;
-                    }
                 }
             }
             catch (Exception ex)
             {
-                // Если произошла сетевая ошибка — возвращаем кнопку к жизни, чтобы интерфейс не завис
                 btn.IsEnabled = true;
                 trackData.IsPlaying = false;
-
-                _mainWindow.Dispatcher.Invoke(() => {
-                    var sb = _mainWindow.FindResource("RotateAnimation") as System.Windows.Media.Animation.Storyboard;
-                    sb?.Stop(_mainWindow);
-                    _mainWindow.GlobalPlayPauseBtn.Content = "\uE102";
-                });
-
+                _mainWindow.BottomTrackTitle.Text = "Ошибка";
                 MessageBox.Show("Ошибка: " + ex.Message);
+            }
+            finally
+            {
+                _isDataLoading = false;
             }
         }
 

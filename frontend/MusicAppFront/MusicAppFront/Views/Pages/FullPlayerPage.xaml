@@ -38,7 +38,7 @@
                                        ShadowDepth="0" 
                                        Color="Black"/>
                     </Border.Effect>
-                    <Image Source="/Resources/logo.png" 
+                    <Image Source="/Resources/logo.png" x:Name="BIG_TrackImage"
                         Width="400" 
                         Height="500" 
                         Stretch="UniformToFill"/>
@@ -62,14 +62,14 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Название трека" 
+                        <TextBlock Text="Название трека" x:Name="BIG_TrackTitle"
                                 Foreground="{StaticResource PrimaryText}"
                                 FontSize="44" 
                                 FontWeight="Black" 
                                 TextWrapping="Wrap"
                                 LineHeight="40" 
                                 LineStackingStrategy="BlockLineHeight"/>
-                        <TextBlock Text="Исполнитель"
+                        <TextBlock Text="Исполнитель" x:Name="BIG_Author"
                                 FontSize="22" 
                                 FontWeight="SemiBold" 
                                 Margin="0,5,0,0">
@@ -94,17 +94,23 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="1:24" 
+                        <TextBlock Text="1:24" x:Name="BIG_CurrentTime"
                                 Foreground="{StaticResource SecondaryText}" 
                                 FontSize="12" 
                                 VerticalAlignment="Center" 
                                 HorizontalAlignment="Left"/>
 
-                        <Slider Style="{StaticResource ModernSlider}" 
-                             Grid.Column="1"
-                             VerticalAlignment="Center" 
-                             Margin="10,0"/>
-                        <TextBlock Text="3:45" 
+                        <Slider Style="{StaticResource ModernSlider}" x:Name="BIG_Slider"
+                                Grid.Column="1"
+                                VerticalAlignment="Center" 
+                                Margin="10,0"
+                                Maximum="100" 
+                                Value="0"
+                                Thumb.DragStarted="BIG_TimelineSlider_DragStarted" 
+                                Thumb.DragCompleted="BIG_TimelineSlider_DragCompleted"
+                                PreviewMouseLeftButtonDown="BIG_TimelineSlider_PreviewMouseLeftButtonDown"
+                                ValueChanged="BIG_TimelineSlider_ValueChanged"/>
+                        <TextBlock Text="3:45" x:Name="BIG_TotalTime"
                                 Grid.Column="2" 
                                 Foreground="{StaticResource SecondaryText}" 
                                 FontSize="12" 
@@ -120,21 +126,24 @@
                                  Style="{StaticResource PlayerControlBtn}" 
                                  FontSize="14" 
                                  Margin="0,0,20,0"/>
-                            <Button Content="&#xE892;" 
+                            <Button Content="&#xE892;" x:Name="BIG_PrevBtn"
                                  FontFamily="Segoe MDL2 Assets" 
                                  Style="{StaticResource PlayerControlBtn}" 
-                                 FontSize="22"/>
-                            <Button Content="&#xE102;" 
+                                 FontSize="22"
+                                    Click="BIG_PrevBtn_Click"/>
+                            <Button Content="&#xE102;" x:Name="BIG_GlobalPlayPauseBtn"
                                  FontFamily="Segoe MDL2 Assets" 
                                  Style="{StaticResource PlayBtnStyle}" 
                                  Width="56" 
                                  Height="56" 
                                  FontSize="22" 
-                                 Margin="20,0"/>
-                            <Button Content="&#xE893;" 
+                                 Margin="20,0"
+                                 Click="BIG_GlobalPlayPauseBtn_Click"/>
+                            <Button Content="&#xE893;" x:Name="BIG_NextBtn"
                                  FontFamily="Segoe MDL2 Assets" 
                                  Style="{StaticResource PlayerControlBtn}" 
-                                 FontSize="22"/>
+                                 FontSize="22"
+                                    Click="BIG_NextBtn_Click"/>
                             <Button Content="&#xE8EE;" 
                                  FontFamily="Segoe MDL2 Assets" 
                                  Style="{StaticResource PlayerControlBtn}" 

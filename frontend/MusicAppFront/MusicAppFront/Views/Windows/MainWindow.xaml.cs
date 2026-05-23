@@ -1,9 +1,11 @@
-﻿using MusicAppFront.browserMusicPlayer;
+﻿using LibVLCSharp.Shared;
+using MusicAppFront.browserMusicPlayer;
 using MusicAppFront.Models;
 using MusicAppFront.Views.Pages;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
@@ -16,6 +18,7 @@ using System.Windows.Media.Imaging;
 
 using static MusicAppFront.browserMusicPlayer.BrowserMusicPlayer;
 using static MusicAppFront.Models.SearchResultDto;
+using static testPlayer.NativePlayer;
 
 namespace MusicAppFront.Views.Windows
 {
@@ -26,9 +29,14 @@ namespace MusicAppFront.Views.Windows
         private FavoritesPage _favoritesPage;
         private PlaylistsPage _playlistsPage;
         private MaxFlowPage _maxFlowPage;
-        private BrowserMusicPlayer _browserMusicPlayer;
+        //private BrowserMusicPlayer _browserMusicPlayer;
+
+        private testPlayer.NativePlayer _nativePlayer;
 
         private HttpClient _client = new HttpClient();
+
+        public SearchResultDto GlobalResults = new SearchResultDto();
+        private MusicAppFront.Views.Pages.FullPlayerPage _singleFullPlayerPage;
 
 
 
@@ -46,80 +54,118 @@ namespace MusicAppFront.Views.Windows
             _playlistsPage = new PlaylistsPage();
             _maxFlowPage = new MaxFlowPage();
             MainFrame.Navigate(_homePage);
-            _browserMusicPlayer = new BrowserMusicPlayer(this);
-            _browserMusicPlayer.InitBrowser();
+
+            _nativePlayer = new testPlayer.NativePlayer(this);
+
+            //_browserMusicPlayer = new BrowserMusicPlayer(this);
+            //_browserMusicPlayer.InitBrowser();
+
+            LibVLCSharp.Shared.Core.Initialize();
+            _nativePlayer._libVlc = new LibVLC();
+            _nativePlayer._mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_nativePlayer._libVlc);
+            //InitializeComponent();
+
+            _ = Task.Run(async () =>
+            {
+                Console.WriteLine("прогрев сервулятора");
+                try
+                {
+                    await _client.GetAsync("http://localhost:8888/");
+                    Console.WriteLine("сервулятор прогрет)");
+                }
+                catch { }
+            });
+
+            _nativePlayer._mediaPlayer.EndReached += (s, e) =>
+            {
+
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        // Небольшая задержка, чтобы VLC гарантированно перешел в состояние Stopped
+                        await Task.Delay(50);
+
+                        // Запускаем переключение трека в фоне
+                        await _nativePlayer.PlayNextTrackAsync(GlobalResults);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Ошибка при переключении: {ex.Message}");
+                    }
+                });
+            };
+
+
+            _nativePlayer._mediaPlayer.TimeChanged += (s, e) =>
+            {
+                Dispatcher.InvokeAsync(() =>
+                {
+                    double currentTime = e.Time / 1000.0; // VLC отдаёт миллисекунды
+
+                    if (!_nativePlayer._isDragging && currentTime >= 0 && currentTime <= TimelineSlider.Maximum)
+                    {
+                        TimelineSlider.Value = currentTime;
+                        TotalTimeText.Text = $"{_nativePlayer.FormatTime(TimelineSlider.Maximum)}";
+                        CurrentTimeText.Text = $"{_nativePlayer.FormatTime(TimelineSlider.Value)}";
+                    }
+                });
+            };
+
+
         }
 
 
         private async void GlobalPlayPauseBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (!_browserMusicPlayer._isPlayerReady) return;
-
-            try
-            {
-                // 1. Проверяем, загружен ли вообще какой-либо медиапоток в видеоплеер браузера
-                string currentSrc = await HiddenBrowser.ExecuteScriptAsync(
-                    "document.querySelector('video') ? document.querySelector('video').currentSrc : ''"
-                );
-
-                // Убираем лишние кавычки, которые может вернуть ExecuteScriptAsync
-                currentSrc = currentSrc?.Trim('"') ?? "";
-
-                // 2. Если в плеере пусто и ничего не загружалось — кнопка ничего не делает (или можно включить дефолтный трек)
-                if (string.IsNullOrEmpty(currentSrc) || currentSrc == "null")
-                {
-                    return;
-                }
-
-                // 3. Если трек загружен — дергаем play/pause в зависимости от текущего состояния
-                if (_browserMusicPlayer._isPlaying)
-                {
-                    await HiddenBrowser.ExecuteScriptAsync("var v = document.querySelector('video'); if(v) v.pause();");
-                }
-                else
-                {
-                    await HiddenBrowser.ExecuteScriptAsync("var v = document.querySelector('video'); if(v) v.play();");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Ошибка глобального переключения Play/Pause: {ex.Message}");
-            }
+            _nativePlayer.BtnPlay_Click(sender, e, GlobalResults);
         }
 
 
 
         private void NextBtn_Click(object sender, RoutedEventArgs e)
         {
-            _browserMusicPlayer.BtnNext_Click(sender, e);
+            _nativePlayer.BtnNext_Click(sender, e,GlobalResults);
         }
 
         private void PrevBtn_Click(object sender, RoutedEventArgs e)
         {
-            _browserMusicPlayer.BtnPrev_Click(sender, e);
+            _nativePlayer.BtnPrev_Click(sender, e, GlobalResults);
         }
 
         private void TimelineSlider_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            _browserMusicPlayer.TimelineSlider_PreviewMouseLeftButtonDown(sender, e); 
+            _nativePlayer.TimelineSlider_PreviewMouseLeftButtonDown(sender, e); 
         }
 
         private void TimelineSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            _browserMusicPlayer.TimelineSlider_ValueChanged(sender, e);
+            _nativePlayer.TimelineSlider_ValueChanged(sender, e);
 
         }
 
 
         private void TimelineSlider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
         {
-            _browserMusicPlayer.TimelineSlider_DragStarted(sender, e);
+            _nativePlayer.TimelineSlider_DragStarted(sender, e);
         }
 
         private async void TimelineSlider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
         {
-           _browserMusicPlayer.TimelineSlider_DragCompleted(sender, e);
+            _nativePlayer.TimelineSlider_DragCompleted(sender, e);
         }
+
+
+
+
+        
+
+
+
+
+
+
+
 
 
 
@@ -197,11 +243,46 @@ namespace MusicAppFront.Views.Windows
                     var results = await _client.GetFromJsonAsync<SearchResultDto>(
                         $"api/music/search?query={Uri.EscapeDataString(SearchBox.Text)}"
                     );
+                    
 
                     if (results != null)
                     {
-                        // Передаем результаты в конструктор страницы
-                        MainFrame.Navigate(new SearchPage(results, this, _browserMusicPlayer));
+                        GlobalResults = results;
+                        foreach (var res in GlobalResults.Tracks)
+                        {
+                            System.Diagnostics.Debug.WriteLine(":GlobalResults " + res.Title);
+                        }
+                        // 1. Проверяем, играет ли что-то в плеере прямо сейчас
+                        var currentPlaying = _nativePlayer?._currentlyPlayingTrack;
+                        if (currentPlaying != null && results.Tracks != null)
+                        {
+                            foreach (var track in results.Tracks)
+                            {
+                                // Сверяем название и автора (как в твоем методе клика)
+                                bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
+                                            && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+                                if (isMatch)
+                                {
+                                    // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                                    track.IsPlaying = _nativePlayer._mediaPlayer.IsPlaying;
+                                    break; // Выходим из цикла
+                                }
+                            }
+                        }
+
+                        // 2. Передаем уже ИЗМЕНЕННЫЕ результаты в конструктор страницы
+                        var searchPage = new SearchPage(results, this, _nativePlayer);
+
+                        // 3. Передаем ссылку на измененный трек внутрь страницы, 
+                        // чтобы кнопка "паузы" знала, кого сбрасывать при следующем клике
+                        if (results.Tracks != null)
+                        {
+                            searchPage._lastPlayedTrack = results.Tracks.FirstOrDefault(t => t.IsPlaying);
+                        }
+
+                        // 4. Отправляем готовую страницу во Frame
+                        MainFrame.Navigate(searchPage);
                     }
                 }
                 catch (Exception ex)
@@ -229,7 +310,25 @@ namespace MusicAppFront.Views.Windows
         }
         private void OpenFullPlayer_Click(object sender, MouseButtonEventArgs e)
         {
-            MainFrame.Navigate(new FullPlayerPage());
+            if (MainFrame.Content is MusicAppFront.Views.Pages.FullPlayerPage)
+            {
+                
+               
+
+                // Уходим назад (на страницу поиска или хоум)
+                if (MainFrame.CanGoBack)
+                {
+                    MainFrame.GoBack();
+                }
+                return;
+            }
+            if (_singleFullPlayerPage == null)
+            {
+                _singleFullPlayerPage = new FullPlayerPage(this, _nativePlayer, GlobalResults);
+            }
+
+
+            MainFrame.Navigate(new FullPlayerPage(this, _nativePlayer, GlobalResults));
         }
 
 
