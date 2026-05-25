@@ -683,6 +683,131 @@ namespace backendxd.Services
         }
 
 
+
+
+
+
+
+        public async Task<List<TrackDto2>> GetSimilarTracksBatchAsync(string artist, string track, List<string> exclude, int batchSize = 15)
+        {
+            string apiKey = "2852e900527a499032a3066ae34bb7ca";
+            string workerUrl2 = "https://render-worker-zjwk.onrender.com";
+
+            using var client = new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) => true });
+
+            try
+            {
+                string rawLastFmUrl = $"https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}&api_key={apiKey}&format=json&limit=100";
+                string finalUrl2 = $"{workerUrl2}?url={Uri.EscapeDataString(rawLastFmUrl)}";
+
+                var response = await client.GetFromJsonAsync<JsonElement>(finalUrl2);
+
+                if (response.TryGetProperty("similartracks", out var similarTracks))
+                {
+                    var trackList = similarTracks.GetProperty("track").EnumerateArray()
+                      .Where(t =>
+                      {
+                          string? art = t.TryGetProperty("artist", out var artEl) && artEl.TryGetProperty("name", out var artNameEl) ? artNameEl.GetString() : null;
+                          string? name = t.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+
+                          if (art == null || name == null) return false;
+
+                          string key = $"{art.ToLower()} - {name.ToLower()}";
+                          return !exclude.Contains(key);
+                      })
+                      .ToList();
+
+                    if (trackList.Count > 0)
+                    {
+                        // Берем не 1, а целую пачку (до batchSize)
+                        var selectedBatch = trackList.Take(batchSize).ToList();
+
+                        // Ищем обложки в Deezer параллельно!
+                        var deezerTasks = selectedBatch.Select(async selected =>
+                        {
+                            string nextArtist = selected.GetProperty("artist").GetProperty("name").GetString();
+                            string nextTrack = selected.GetProperty("name").GetString();
+                            string imageUrl = "";
+
+                            try
+                            {
+                                string dzSearchUrl = $"https://api.deezer.com/search?q=artist:\"{Uri.EscapeDataString(nextArtist)}\" track:\"{Uri.EscapeDataString(nextTrack)}\"&limit=1";
+                                var dzResponse = await client.GetFromJsonAsync<JsonElement>(dzSearchUrl);
+                                if (dzResponse.TryGetProperty("data", out var data) && data.GetArrayLength() > 0)
+                                {
+                                    var firstMatch = data.EnumerateArray().First();
+                                    imageUrl = firstMatch.GetProperty("album").GetProperty("cover_big").GetString();
+                                }
+                            }
+                            catch { /* Игнорим ошибку дизера, просто будет без картинки */ }
+
+                            return new TrackDto2(nextTrack, nextArtist, "", nextArtist, nextTrack, imageUrl);
+                        });
+
+                        // Ждем выполнения всех запросов к Deezer разом
+                        var results = await Task.WhenAll(deezerTasks);
+                        return results.ToList();
+                    }
+                }
+            }
+            catch (Exception ex) { Console.WriteLine($"Ошибка рекомендаций: {ex.Message}"); }
+
+            return new List<TrackDto2>();
+        }
+
+
+
+
+        public async Task<List<TrackDto2>> GetTopTracksByArtistBatchAsync(string artist, List<string> exclude, int batchSize = 15)
+        {
+            // Метод Last.fm: artist.gettoptracks
+            string rawUrl = $"https://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist={Uri.EscapeDataString(artist)}&api_key=2852e900527a499032a3066ae34bb7ca&format=json&limit=50";
+            return await FetchAndParseLastFm(rawUrl, "toptracks", "track", exclude, batchSize);
+        }
+
+        // Метод фолбэка: Глобальные популярные треки (Charts)
+        public async Task<List<TrackDto2>> GetGlobalTrendingBatchAsync(List<string> exclude, int batchSize = 15)
+        {
+            // Метод Last.fm: chart.gettoptracks
+            string rawUrl = $"https://ws.audioscrobbler.com/2.0/?method=chart.gettoptracks&api_key=2852e900527a499032a3066ae34bb7ca&format=json&limit=50";
+            return await FetchAndParseLastFm(rawUrl, "tracks", "track", exclude, batchSize);
+        }
+
+        // Универсальный парсер, чтобы не дублировать код Deezer и прочее
+        private async Task<List<TrackDto2>> FetchAndParseLastFm(string rawUrl, string rootProp, string listProp, List<string> exclude, int batchSize)
+        {
+            string workerUrl2 = "https://render-worker-zjwk.onrender.com";
+            using var client = new HttpClient();
+            string finalUrl = $"{workerUrl2}?url={Uri.EscapeDataString(rawUrl)}";
+
+            try
+            {
+                var response = await client.GetFromJsonAsync<JsonElement>(finalUrl);
+                if (response.TryGetProperty(rootProp, out var root))
+                {
+                    var tracks = root.GetProperty(listProp).EnumerateArray()
+                        .Where(t => {
+                            string art = t.TryGetProperty("artist", out var a) && a.TryGetProperty("name", out var n) ? n.GetString() : "";
+                            string name = t.TryGetProperty("name", out var nm) ? nm.GetString() : "";
+                            return !string.IsNullOrEmpty(art) && !exclude.Contains($"{art.ToLower()} - {name.ToLower()}");
+                        })
+                        .Take(batchSize);
+
+                    // Тут просто переиспользуем твою логику с Deezer (можно вынести в отдельный метод)
+                    // Для краткости тут просто возврат, но лучше вызвать ту же логику с Deezer как у тебя
+                    return tracks.Select(t => new TrackDto2(t.GetProperty("name").GetString(), t.GetProperty("artist").GetProperty("name").GetString(), "", "", "", "")).ToList();
+                }
+            }
+            catch { }
+            return new List<TrackDto2>();
+        }
+
+
+
+
+
+
+
     }
 
 

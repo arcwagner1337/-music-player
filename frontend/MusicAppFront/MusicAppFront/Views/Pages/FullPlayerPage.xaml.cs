@@ -28,18 +28,21 @@ namespace MusicAppFront.Views.Pages
         private readonly MainWindow _mainWindow;
         private readonly testPlayer.NativePlayer _nativePlayer;
         private readonly SearchResultDto _GlobalResults;
+        private readonly SearchResultDto _GlobalAlbumResults; 
+
 
 
         public bool _isDraggingBigSlider = false;
 
         // Конструктор теперь принимает готовые объекты снаружи
-        public FullPlayerPage(MainWindow mainWindow, testPlayer.NativePlayer player, SearchResultDto GlobalResults)
+        public FullPlayerPage(MainWindow mainWindow, testPlayer.NativePlayer player, SearchResultDto GlobalResults, SearchResultDto GlobalAlbumResults)
         {
             InitializeComponent();
 
             _mainWindow = mainWindow;
             _nativePlayer = player;
             _GlobalResults = GlobalResults;
+            _GlobalAlbumResults = GlobalAlbumResults;
 
             UpdateUiFromCurrentTrack();
 
@@ -139,7 +142,14 @@ namespace MusicAppFront.Views.Pages
 
         private void BIG_GlobalPlayPauseBtn_Click(object sender, RoutedEventArgs e)
         {
-            _nativePlayer.BtnPlay_Click(sender, e, _GlobalResults);
+            if (_mainWindow.isAlbumOpenAndActive)
+            {
+                _nativePlayer.BtnPlay_Click(sender, e, _GlobalAlbumResults);
+            }
+            else 
+            {
+                _nativePlayer.BtnPlay_Click(sender, e, _GlobalResults);
+            }
 
         }
 

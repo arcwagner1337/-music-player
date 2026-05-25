@@ -125,6 +125,7 @@ namespace MusicAppFront.Views.Pages
         {
             var btn = sender as Button;
             var trackData = btn?.DataContext as SearchResultDto.TrackDto2;
+            _mainWindow.isAlbumOpenAndActive = false;
 
             if (trackData == null || btn == null) return; // Защита от NullReference
             if (_isDataLoading) return; // Защита от спама кликами

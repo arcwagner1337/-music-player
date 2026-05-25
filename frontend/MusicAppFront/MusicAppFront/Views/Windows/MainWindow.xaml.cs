@@ -36,7 +36,11 @@ namespace MusicAppFront.Views.Windows
         private HttpClient _client = new HttpClient();
 
         public SearchResultDto GlobalResults = new SearchResultDto();
+        public SearchResultDto GlobalAlbumResults = new SearchResultDto();
+
         private MusicAppFront.Views.Pages.FullPlayerPage _singleFullPlayerPage;
+
+        public bool isAlbumOpenAndActive = false;
 
 
 
@@ -87,7 +91,10 @@ namespace MusicAppFront.Views.Windows
                         await Task.Delay(50);
 
                         // Запускаем переключение трека в фоне
-                        await _nativePlayer.PlayNextTrackAsync(GlobalResults);
+
+                        if (isAlbumOpenAndActive) { await _nativePlayer.PlayNextAlbumTrackAsync(GlobalAlbumResults); } 
+                        else { await _nativePlayer.PlayNextTrackAsync(GlobalResults); }
+                            
                     }
                     catch (Exception ex)
                     {
@@ -118,24 +125,49 @@ namespace MusicAppFront.Views.Windows
 
         private async void GlobalPlayPauseBtn_Click(object sender, RoutedEventArgs e)
         {
-            _nativePlayer.BtnPlay_Click(sender, e, GlobalResults);
+
+            if (isAlbumOpenAndActive)
+            {
+                _nativePlayer.BtnPlay_Click(sender, e, GlobalAlbumResults);
+            }
+            else
+            {
+                _nativePlayer.BtnPlay_Click(sender, e, GlobalResults);
+            }
         }
 
 
 
         private void NextBtn_Click(object sender, RoutedEventArgs e)
         {
-            _nativePlayer.BtnNext_Click(sender, e,GlobalResults);
+
+            if (isAlbumOpenAndActive)
+            {
+
+                _nativePlayer.BtnNextAlbum_Click(sender, e, GlobalAlbumResults);
+            }
+            else
+            {
+                _nativePlayer.BtnNext_Click(sender, e, GlobalResults);
+            }
         }
 
         private void PrevBtn_Click(object sender, RoutedEventArgs e)
         {
-            _nativePlayer.BtnPrev_Click(sender, e, GlobalResults);
+
+            if (isAlbumOpenAndActive)
+            {
+                _nativePlayer.BtnPrevAlbum_Click(sender, e, GlobalAlbumResults);
+            }
+            else
+            {
+                _nativePlayer.BtnPrev_Click(sender, e, GlobalResults);
+            }
         }
 
         private void TimelineSlider_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            _nativePlayer.TimelineSlider_PreviewMouseLeftButtonDown(sender, e); 
+            _nativePlayer.TimelineSlider_PreviewMouseLeftButtonDown(sender, e);
         }
 
         private void TimelineSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -158,7 +190,7 @@ namespace MusicAppFront.Views.Windows
 
 
 
-        
+
 
 
 
@@ -216,13 +248,15 @@ namespace MusicAppFront.Views.Windows
                     if (cc.DataContext is AlbumDto album)
                     {
                         // Передаем альбом в конструктор страницы
-                        MainFrame.Navigate(new InfoPlaylistPage(album));
+                        //isAlbumOpen = true;
+                        MainFrame.Navigate(new InfoPlaylistPage(album, this, _nativePlayer));
                     }
                     else
                     {
                         // Если данных нет, просто открываем (как было), 
                         // но лучше проверить, почему DataContext пустой
-                        MainFrame.Navigate(new InfoPlaylistPage(null));
+                        //isAlbumOpen = true;
+                        MainFrame.Navigate(new InfoPlaylistPage(null, this, _nativePlayer));
                     }
 
                     e.Handled = true;
@@ -243,7 +277,7 @@ namespace MusicAppFront.Views.Windows
                     var results = await _client.GetFromJsonAsync<SearchResultDto>(
                         $"api/music/search?query={Uri.EscapeDataString(SearchBox.Text)}"
                     );
-                    
+
 
                     if (results != null)
                     {
@@ -312,8 +346,8 @@ namespace MusicAppFront.Views.Windows
         {
             if (MainFrame.Content is MusicAppFront.Views.Pages.FullPlayerPage)
             {
-                
-               
+
+
 
                 // Уходим назад (на страницу поиска или хоум)
                 if (MainFrame.CanGoBack)
@@ -324,11 +358,11 @@ namespace MusicAppFront.Views.Windows
             }
             if (_singleFullPlayerPage == null)
             {
-                _singleFullPlayerPage = new FullPlayerPage(this, _nativePlayer, GlobalResults);
+                _singleFullPlayerPage = new FullPlayerPage(this, _nativePlayer, GlobalResults, GlobalAlbumResults);
             }
 
 
-            MainFrame.Navigate(new FullPlayerPage(this, _nativePlayer, GlobalResults));
+            MainFrame.Navigate(new FullPlayerPage(this, _nativePlayer, GlobalResults, GlobalAlbumResults));
         }
 
 

@@ -74,7 +74,7 @@ namespace backendxd.Controllers
         //}
 
 
-        [HttpPost("GetNextRecommended")]
+        [HttpPost("GetNextRecommended0")]
         public async Task<IActionResult> GetNextRecommended([FromBody] GetNextRecommendedRequest request)
         {
 
@@ -114,6 +114,69 @@ namespace backendxd.Controllers
                 duration = ytInfo[1]
             });
         }
+
+
+
+        [HttpPost("GetNextRecommended")]
+        public async Task<IActionResult> GetNextRecommended2([FromBody] GetNextRecommendedRequest request)
+        {
+            var excludedList = request.Exclude?.Select(x => x.ToLower()).ToList() ?? new List<string>();
+
+            // 1. Пытаемся взять похожие
+            var recommendedBatch = await _musicService.GetSimilarTracksBatchAsync(request.Artist, request.Track, excludedList, 15);
+
+            // 2. Фолбэк по артисту
+            if (recommendedBatch.Count == 0)
+            {
+                Console.WriteLine($"[server] ⚠️ Фолбэк по артисту: {request.Artist}");
+                recommendedBatch = await _musicService.GetTopTracksByArtistBatchAsync(request.Artist, excludedList, 15);
+            }
+
+            // 3. Глобальный фолбэк (самый крайний)
+            if (recommendedBatch.Count == 0)
+            {
+                Console.WriteLine("[server] ⚠️ Глобальный фолбэк (Charts)");
+                recommendedBatch = await _musicService.GetGlobalTrendingBatchAsync(excludedList, 15);
+            }
+
+            if (recommendedBatch.Count == 0) return NotFound();
+
+            // 2. Параллельно запрашиваем YouTube ссылки для всей пачки
+            var youtubeTasks = recommendedBatch.Select(async rec =>
+            {
+                try
+                {
+                    var ytInfo = await _musicService.SearchOnYouTubeAsync3(rec.Author, rec.Title);
+                    if (ytInfo != null)
+                    {
+                        return new
+                        {
+                            artist = rec.Author,
+                            title = rec.Title,
+                            imageUrl = rec.ImageUrl,
+                            streamUrl = ytInfo[0],
+                            duration = ytInfo.Count > 1 ? ytInfo[1] : "0"
+                        };
+                    }
+                }
+                catch { /* Игнорируем треки, которые не нашлись на ютубе */ }
+                return null;
+            });
+
+            // Ждем все ютуб-запросы
+            var results = await Task.WhenAll(youtubeTasks);
+
+            // Отсеиваем те, что вернули null (не нашлись)
+            var validResults = results.Where(r => r != null).ToList();
+
+            if (validResults.Count == 0) return NotFound();
+
+            // Возвращаем массив треков!
+            return Ok(validResults);
+        }
+
+
+
 
         public class GetNextRecommendedRequest
         {

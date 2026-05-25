@@ -10,8 +10,11 @@ using System.Text;
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 var builder = WebApplication.CreateBuilder(args);
 Environment.SetEnvironmentVariable("SLAVA_UKRAINI", "1");
+//builder.Services.AddDbContext<AppDbContext>(options =>
+//    options.UseNpgsql(builder.Configuration.GetConnectionString("NeonDB")));
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("NeonDB")));
+    options.UseNpgsql("Host=ep-dark-king-anl9c26e-pooler.c-6.us-east-1.aws.neon.tech;Database=neondb;Username=neondb_owner;Password=npg_qkFOej7a0zQf;SSL Mode=Require;Trust Server Certificate=true"));
 builder.Services.AddScoped<GenerateJWT>();
 builder.Services.AddScoped<mail>();
 builder.Services.AddScoped<MusicService>();
