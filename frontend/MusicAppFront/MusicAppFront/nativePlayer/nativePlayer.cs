@@ -17,6 +17,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
@@ -146,6 +147,8 @@ namespace testPlayer
 
 
         public event Action<bool> PlayerStatusChanged;
+        private static readonly string HistoryFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "recent_tracks.json");
+        private const int MaxTracks = 20;
 
         public NativePlayer(MainWindow mainWindow)
         {
@@ -287,7 +290,55 @@ namespace testPlayer
         //        }
         //    }
         //}
+        public async Task AddToHistory(TrackWithStreamDto newTrack)
+        {
+            List<TrackWithStreamDto> history = new List<TrackWithStreamDto>();
 
+            try
+            {
+                //    if (File.Exists(HistoryFile))
+                //{
+                string json = await File.ReadAllTextAsync(HistoryFile);
+                // Десериализация в Newtonsoft
+                history = JsonConvert.DeserializeObject<List<TrackWithStreamDto>>(json) ?? new List<TrackWithStreamDto>();
+                //}
+
+                history.RemoveAll(t => t.YtUrl == newTrack.YtUrl);
+                history.Insert(0, newTrack);
+
+                if (history.Count > MaxTracks)
+                {
+                    history = history.Take(MaxTracks).ToList();
+                }
+
+                // Сериализация в Newtonsoft с красивым форматированием
+                string newJson = JsonConvert.SerializeObject(history, Formatting.Indented);
+
+                // Запись в файл асинхронно
+                await File.WriteAllTextAsync(HistoryFile, newJson);
+                System.Diagnostics.Debug.WriteLine($"История сохранена в: {HistoryFile}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ОШИБКА записи истории: {ex.Message}");
+            }
+        }
+
+
+        public List<TrackWithStreamDto> GetHistory()
+        {
+            if (!File.Exists(HistoryFile)) return new List<TrackWithStreamDto>();
+
+            try
+            {
+                string json = File.ReadAllText(HistoryFile);
+                return JsonConvert.DeserializeObject<List<TrackWithStreamDto>>(json) ?? new List<TrackWithStreamDto>();
+            }
+            catch
+            {
+                return new List<TrackWithStreamDto>();
+            }
+        }
 
 
         private async Task PreloadRecommendationForAlbumsAsync(string artist, string track, CancellationToken token)
@@ -591,6 +642,8 @@ namespace testPlayer
             if (_playbackQueue.Count < 10)
                 _ = PreloadRecommendationsAsync(track.Artist, track.Title, _preloadCts.Token);
             System.Diagnostics.Debug.WriteLine($"[playtrack] StreamUrl: {track.StreamUrl?.Substring(0, Math.Min(60, track.StreamUrl?.Length ?? 0))}");
+
+            await AddToHistory(track);
             PlayWithVlc(track.StreamUrl);
         }
 
@@ -985,6 +1038,12 @@ namespace testPlayer
             {
                 System.Diagnostics.Debug.WriteLine("queue:  " + item.Title);
             }
+
+
+            //foreach(var item in _mainWindow.HistoryList)
+            //{
+            //    System.Diagnostics.Debug.WriteLine("HistoryList data:  " + item.Title);
+            //}
 
 
 

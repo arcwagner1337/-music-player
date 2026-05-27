@@ -4,6 +4,7 @@ using MusicAppFront.Models;
 using MusicAppFront.Views.Pages;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
@@ -37,7 +38,7 @@ namespace MusicAppFront.Views.Windows
 
         public SearchResultDto GlobalResults = new SearchResultDto();
         public SearchResultDto GlobalAlbumResults = new SearchResultDto();
-
+        public ObservableCollection<testPlayer.NativePlayer.TrackWithStreamDto> HistoryList = new ObservableCollection<testPlayer.NativePlayer.TrackWithStreamDto>();
         private MusicAppFront.Views.Pages.FullPlayerPage _singleFullPlayerPage;
 
         public bool isAlbumOpenAndActive = false;
@@ -52,14 +53,14 @@ namespace MusicAppFront.Views.Windows
             _client = new HttpClient();
             _client.BaseAddress = new Uri("https://localhost:7296/");
 
-            _homePage = new HomePage();
             _profilePage = new ProfilePage();
             _favoritesPage = new FavoritesPage();
             _playlistsPage = new PlaylistsPage();
             _maxFlowPage = new MaxFlowPage();
-            MainFrame.Navigate(_homePage);
 
             _nativePlayer = new testPlayer.NativePlayer(this);
+            _homePage = new HomePage(this, _nativePlayer);
+            MainFrame.Navigate(_homePage);
 
             //_browserMusicPlayer = new BrowserMusicPlayer(this);
             //_browserMusicPlayer.InitBrowser();
@@ -67,6 +68,14 @@ namespace MusicAppFront.Views.Windows
             LibVLCSharp.Shared.Core.Initialize();
             _nativePlayer._libVlc = new LibVLC();
             _nativePlayer._mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_nativePlayer._libVlc);
+
+            var loadedList = _nativePlayer.GetHistory(); // Твой метод, который читает JSON
+
+            // Заполняем коллекцию
+            foreach (var track in loadedList)
+            {
+                HistoryList.Add(track);
+            }
             //InitializeComponent();
 
             _ = Task.Run(async () =>

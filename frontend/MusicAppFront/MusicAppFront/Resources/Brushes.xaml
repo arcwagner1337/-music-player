@@ -428,14 +428,12 @@
                             BorderThickness="1">
                         <StackPanel>
                             <Grid>
-                                <Border x:Name="imgBorder" 
-                                    CornerRadius="10" 
-                                    ClipToBounds="True" 
-                                    Height="170">
-                                    <Image Source="/Resources/logo.png" 
-                                       Stretch="UniformToFill" 
-                                       HorizontalAlignment="Center" 
-                                       VerticalAlignment="Center"/>
+                                <Border x:Name="imgBorder" CornerRadius="10" ClipToBounds="True" Height="170" Background="Transparent">
+                                    
+                                    <Image Source="{Binding ImageUrl}" 
+                                        Stretch="UniformToFill" 
+                                        HorizontalAlignment="Center" 
+                                        VerticalAlignment="Center"/>
                                 </Border>
                                 <Border x:Name="playButton" 
                                         Width="48" Height="48"
@@ -460,14 +458,14 @@
                             </Grid>
 
                             <!-- тут будут биндинги из api -->
-                            <TextBlock Text="Название трека" 
-                               Foreground="White" FontWeight="Bold" 
-                               FontSize="15" Margin="0,15,0,5"
-                               TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Title}" 
+                                Foreground="White" FontWeight="Bold" 
+                                FontSize="15" Margin="0,15,0,5"
+                                TextTrimming="CharacterEllipsis"/>
 
-                            <TextBlock Text="Исполнитель" 
-                               Foreground="{StaticResource AccentGradient}" 
-                               FontSize="13" Margin="0,0,0,5"/>
+                            <TextBlock Text="{Binding Artist}" 
+                                Foreground="{StaticResource AccentGradient}" 
+                                FontSize="13" Margin="0,0,0,5"/>
                         </StackPanel>
                     </Border>
 
@@ -813,15 +811,15 @@
 
 
                             <Path x:Name="loadingIcon2"
-    Data="M 10,0 A 10,10 0 1 1 0,10" 
-    Stroke="White" 
-    StrokeThickness="3"
-    Width="20" Height="20"
-    Stretch="Uniform"
-    Visibility="Collapsed"
-    RenderTransformOrigin="0.5,0.5"
-    StrokeStartLineCap="Round" 
-    StrokeEndLineCap="Round">
+                                Data="M 10,0 A 10,10 0 1 1 0,10" 
+                                Stroke="White" 
+                                StrokeThickness="3"
+                                Width="20" Height="20"
+                                Stretch="Uniform"
+                                Visibility="Collapsed"
+                                RenderTransformOrigin="0.5,0.5"
+                                StrokeStartLineCap="Round" 
+                                StrokeEndLineCap="Round">
                             </Path>
 
 

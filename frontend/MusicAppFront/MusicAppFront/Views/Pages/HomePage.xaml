@@ -9,20 +9,31 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Hidden">
         <StackPanel Margin="30,20">
-            <TextBlock Text="Популярные треки"
+            <TextBlock Text="Прослушанные треки"
                    Foreground="{StaticResource PrimaryText}"
                    FontSize="32" 
                    FontWeight="Black" 
                    Margin="10,0,0,30"/>
 
-            <WrapPanel>
-                <!-- шаблончик -->
-                <ContentControl Style="{StaticResource TrackCardStyle}"/>
-                <ContentControl Style="{StaticResource TrackCardStyle}"/>
-                <ContentControl Style="{StaticResource TrackCardStyle}"/>
-                <ContentControl Style="{StaticResource TrackCardStyle}"/>
-                <ContentControl Style="{StaticResource TrackCardStyle}"/>
-            </WrapPanel>
+
+
+
+            <ItemsControl x:Name="HistoryItemsControl">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ContentControl Style="{StaticResource TrackCardStyle}" 
+                            MouseLeftButtonDown="OnTrackClicked"
+                            Cursor="Hand" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
 
             <TextBlock Text="Ваш выбор" 
                    Foreground="{StaticResource PrimaryText}" 
