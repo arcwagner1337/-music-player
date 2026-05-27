@@ -122,6 +122,13 @@ namespace MusicAppFront.Views.Windows
 
         }
 
+        private async void BtnTest_Click(object sender, RoutedEventArgs e)
+        {
+            
+            await _nativePlayer.test();
+            
+        }
+
 
         private async void GlobalPlayPauseBtn_Click(object sender, RoutedEventArgs e)
         {

@@ -135,7 +135,7 @@ namespace testPlayer
         //        private int _serverIndex = 0;
 
 
-        private readonly string[] _fastServers = { "http://localhost:8888", "http://localhost:8889" }; // незалогиненные
+        private readonly string[] _fastServers = { "http://127.0.0.1:8888", "http://127.0.0.1:8889" }; // незалогиненные
         private readonly string[] _fallbackServers = { "http://localhost:8890", "http://localhost:8891" }; // залогиненные
 
         private int _fastIndex = 0;
@@ -150,7 +150,7 @@ namespace testPlayer
         public NativePlayer(MainWindow mainWindow)
         {
             _mainWindow = mainWindow;
-           
+
         }
 
         private string GetServerForAttempt(int attempt)
@@ -295,7 +295,7 @@ namespace testPlayer
             string currentArtist = artist;
             string currentTrack = track;
 
-            while (!token.IsCancellationRequested && _playbackAlbumQueue.Count < 30)
+            while (!token.IsCancellationRequested && _playbackAlbumQueue.Count < 10)
             {
                 try
                 {
@@ -412,7 +412,7 @@ namespace testPlayer
             string currentArtist = artist;
             string currentTrack = track;
 
-            while (!token.IsCancellationRequested && _playbackQueue.Count < 30)
+            while (!token.IsCancellationRequested && _playbackQueue.Count < 10)
             {
                 try
                 {
@@ -574,7 +574,7 @@ namespace testPlayer
                 {
                     // Если картинки нет, можно обратно скрывать элемент
                     _mainWindow.BottomTrackImage.Visibility = System.Windows.Visibility.Collapsed;
-                    
+
                 }
             });
 
@@ -588,7 +588,7 @@ namespace testPlayer
                 while (_playbackQueue.TryDequeue(out _)) { }
             }
 
-            if (_playbackQueue.Count < 30)
+            if (_playbackQueue.Count < 10)
                 _ = PreloadRecommendationsAsync(track.Artist, track.Title, _preloadCts.Token);
             System.Diagnostics.Debug.WriteLine($"[playtrack] StreamUrl: {track.StreamUrl?.Substring(0, Math.Min(60, track.StreamUrl?.Length ?? 0))}");
             PlayWithVlc(track.StreamUrl);
@@ -600,7 +600,7 @@ namespace testPlayer
         private async Task PreloadAlbumSurroundingsAsync()
         {
 
-            System.Diagnostics.Debug.WriteLine("резолвинг для альбома пошел епта " );
+            System.Diagnostics.Debug.WriteLine("резолвинг для альбома пошел епта ");
 
             var forwardTracks = _forwardStackAlbum.ToList();
             var historyTracks = _historyStackAlbum.ToList();
@@ -636,10 +636,10 @@ namespace testPlayer
                     // 2. Получаем поток
                     if (!string.IsNullOrEmpty(track.YtUrl))
                     {
-                        
+
                         track.StreamUrl = await ResolveAudioUrlAsync(track.YtUrl);
                         track.IsResolved = true;
-                        
+
                         System.Diagnostics.Debug.WriteLine($"[background] закеширован: {track.Title}");
                     }
                 }
@@ -826,9 +826,9 @@ namespace testPlayer
             _preloadCts = new CancellationTokenSource();
 
 
-                // Запускаем фоновый прогрев соседей в альбоме
-                _ = PreloadAlbumSurroundingsAsync();
-            
+            // Запускаем фоновый прогрев соседей в альбоме
+            _ = PreloadAlbumSurroundingsAsync();
+
 
 
             PlayWithVlc(track.StreamUrl);
@@ -874,7 +874,10 @@ namespace testPlayer
                 try
                 {
                     string apiUrl = $"{server}/?url={Uri.EscapeDataString(youtubeUrl)}";
+                    var sw = Stopwatch.StartNew();
                     string json = await _client.GetStringAsync(apiUrl);
+                    sw.Stop();
+                    System.Diagnostics.Debug.WriteLine($"[DEBUG] Чистое время ожидания ответа от Python-сервера: {sw.ElapsedMilliseconds} мс");
                     var data = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(json);
                     string url = (string)data.url;
 
@@ -954,7 +957,7 @@ namespace testPlayer
             //}
             //else { TxtStatus.Text = "VLC stops"; }
         }
-        public async void BtnPlay_Click(object sender, RoutedEventArgs e,SearchResultDto results)
+        public async void BtnPlay_Click(object sender, RoutedEventArgs e, SearchResultDto results)
         {
 
             foreach (var item in results.Tracks)
@@ -1250,7 +1253,7 @@ namespace testPlayer
             System.Diagnostics.Debug.WriteLine($"_forwardStackAlbum count: {_forwardStackAlbum.Count}");
             try
             {
-                
+
                 var currentPlaying = _currentlyPlayingTrack;
                 if (currentPlaying != null && results.Tracks != null)
                 {
@@ -1301,7 +1304,7 @@ namespace testPlayer
                 if (_playbackAlbumQueue.TryDequeue(out var next))
                 {
                     _mediaPlayer.Stop();
-                    
+
 
                     await _mainWindow.Dispatcher.InvokeAsync(() =>
                     {
@@ -1342,7 +1345,7 @@ namespace testPlayer
                         FullPlayerPage.BIG_TrackTitle.Text = "Ждём очередь...";
                     }
                     _mediaPlayer.Stop();
-                    
+
                     var cts = new CancellationTokenSource(30000); // ждём максимум 30 сек
                     while (_playbackQueue.Count == 0 && !cts.Token.IsCancellationRequested)
                         await Task.Delay(200);
@@ -1492,7 +1495,7 @@ namespace testPlayer
                 {
                     _mediaPlayer.Stop();
                     PlayerStatusChanged?.Invoke(false);
-                    
+
                     await _mainWindow.Dispatcher.InvokeAsync(() =>
                     {
                         _mainWindow.BottomTrackTitle.Text = $"{next.Artist} - {next.Title}";
@@ -1716,5 +1719,68 @@ namespace testPlayer
             // 8. Возвращаем всё назад
             _isDragging = false;
         }
+
+
+
+
+        public async Task test()
+        {
+            string artist = "iron maiden";
+            string track = "wasted years";
+            string baseUrl = "https://localhost:7296/api/music/stream";
+            string requestUrl = $"{baseUrl}?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}";
+
+            string youtubeUrl = "";
+            // 2. Делаем GET запрос
+            
+
+
+            // 3. УБИРАЕМ ТЯЖЕЛЫЙ СЕМАФОР И РАНДОМНЫЕ ЗАДЕРЖКИ (Task.Delay)
+            // Плеер тупил, потому что семафор заставлял треки ждать по 3 секунды в очереди на резолв.
+            // Запускаем чистый параллельный таск для мгновенного получения ссылок YouTube:
+            _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var sw = Stopwatch.StartNew();
+
+
+                        var response = await _client.GetAsync(requestUrl);
+
+                        // 3. Проверяем, что сервер ответил кодом 200 (OK)
+                        response.EnsureSuccessStatusCode();
+
+                        // 4. Читаем результат
+                        string json = await response.Content.ReadAsStringAsync();
+
+                        List<string> data = JsonConvert.DeserializeObject<List<string>>(json);
+
+                        if (data != null && data.Count > 0)
+                        {
+                            youtubeUrl = data[0]; // Вот твоя ссылка!
+                            System.Diagnostics.Debug.WriteLine($"Полученная ссылка: {youtubeUrl}");
+                        }
+
+
+                        var StreamUrl = await ResolveAudioUrlAsync(youtubeUrl);
+
+
+                        System.Diagnostics.Debug.WriteLine("test url:  " + StreamUrl);
+                        sw.Stop();
+                        System.Diagnostics.Debug.WriteLine($"--- тест завершен за {sw.ElapsedMilliseconds} мс ---");
+                        PlayWithVlc(StreamUrl);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[preload] Ошибка резолва ссылки YouTube: {ex.Message}");
+                    }
+                });
+
+
+
+        }
+
+
+
     }
 }
