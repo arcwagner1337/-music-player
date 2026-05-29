@@ -25,6 +25,13 @@ namespace backendxd.Data
             password TEXT NOT NULL, 
             code VARCHAR(6) NOT NULL, 
             expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '15 minutes' 
+        );
+        CREATE TABLE IF NOT EXISTS favorite_tracks (
+        id SERIAL PRIMARY KEY,
+        username TEXT,
+        title TEXT,
+        author TEXT,
+        image_url TEXT
         );";
 
             await context.Database.ExecuteSqlRawAsync(sql);

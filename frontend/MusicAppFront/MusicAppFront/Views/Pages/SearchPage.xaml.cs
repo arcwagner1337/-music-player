@@ -123,6 +123,12 @@ namespace MusicAppFront.Views.Pages
 
         public async void TrackRow_Click(object sender, RoutedEventArgs e)
         {
+            if (e.OriginalSource is CheckBox || e.OriginalSource is TextBlock && (e.OriginalSource as TextBlock).Parent is CheckBox)
+            {
+                return;
+            }
+
+
             var btn = sender as Button;
             var trackData = btn?.DataContext as SearchResultDto.TrackDto2;
             _mainWindow.isAlbumOpenAndActive = false;
@@ -232,6 +238,23 @@ namespace MusicAppFront.Views.Pages
                 _isDataLoading = false;
             }
         }
+
+        //private void OnToggleFavorite(object sender, RoutedEventArgs e)
+        //{
+        //    // Не забываем, чтобы клик не ушел в кнопку воспроизведения!
+        //    e.Handled = true;
+
+        //    var checkBox = sender as CheckBox;
+        //    var track = checkBox?.DataContext as SearchResultDto.TrackDto2;
+
+        //    if (track != null)
+        //    {
+        //        checkBox.IsChecked = !checkBox.IsChecked;
+        //        // Твоя логика API
+
+        //        System.Diagnostics.Debug.WriteLine($"Toggle favorite for: {track.Title}");
+        //    }
+        //}
 
 
 

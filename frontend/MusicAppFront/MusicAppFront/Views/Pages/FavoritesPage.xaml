@@ -82,16 +82,18 @@
                                    HorizontalAlignment="Center"/>
                     </Button>
                 </StackPanel>
-                
+
                 <ContentControl Style="{StaticResource TrackListContainer}">
-                    <StackPanel>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                        <Button Style="{StaticResource TrackRowStyle}"/>
-                    </StackPanel>
+                    <ItemsControl x:Name="TracksList" ItemsSource="{Binding FavoriteTracks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource TrackRowStyle}" 
+                                    Command="{Binding DataContext.PlayTrackCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                    CommandParameter="{Binding}"
+                                        Click="TrackRow_Click"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </ContentControl>
                 <Border Height="80"/>
             </StackPanel>

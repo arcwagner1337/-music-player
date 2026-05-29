@@ -1,6 +1,6 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:MusicAppFront.Resources">
 
     <!-- ФОН ОКНА -->
     <SolidColorBrush x:Key="BgColor" Color="#09090B"/>
@@ -865,15 +865,104 @@
                         Orientation="Horizontal" 
                         HorizontalAlignment="Right" 
                         VerticalAlignment="Center">
+
+
+
+
+                                <Grid Margin="0,0,5,0">
+                                    <ToggleButton x:Name="AddPlaylistToggle" 
+                                                  local:ClickHelper.Handled="True"
+                  Background="Transparent" 
+                  BorderThickness="0" 
+                  Cursor="Hand">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border x:Name="btnBorder" 
+                        Background="Transparent" 
+                        Width="32" 
+                        Height="32" 
+                        CornerRadius="16">
+                                                    <TextBlock x:Name="icon" 
+                               IsHitTestVisible="False"  Text="&#xE710;"
+                               FontFamily="Segoe MDL2 Assets" 
+                               Foreground="{StaticResource SecondaryText}" 
+                               FontSize="13" 
+                               HorizontalAlignment="Center" 
+                               VerticalAlignment="Center"
+                               Opacity="0.6"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="#2A2A2E"/>
+                                                        <Setter TargetName="icon" Property="Foreground" Value="White"/>
+                                                        <Setter TargetName="icon" Property="Opacity" Value="1"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsChecked" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="#7C3AED"/>
+                                                        <Setter TargetName="icon" Property="Foreground" Value="White"/>
+                                                        <Setter TargetName="icon" Property="Opacity" Value="1"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+
+                                    <Popup x:Name="AddPlaylistPopup"
+           IsOpen="{Binding IsChecked, ElementName=AddPlaylistToggle, Mode=TwoWay}" 
+           PlacementTarget="{Binding ElementName=AddPlaylistToggle}" 
+           Placement="Bottom" 
+           StaysOpen="False" 
+           AllowsTransparency="True" 
+           PopupAnimation="Fade">
+                                        <Border Background="#0D0D11" 
+                BorderBrush="#27272A" 
+                BorderThickness="1" 
+                CornerRadius="12" 
+                Padding="5" 
+                Width="220" 
+                Margin="0,5,0,0">
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="25" Color="Black" Opacity="0.6" ShadowDepth="3"/>
+                                            </Border.Effect>
+
+                                            <StackPanel>
+                                                <TextBlock Text="ДОБАВИТЬ В ПЛЕЙЛИСТ" 
+                           Foreground="{StaticResource SecondaryText}" 
+                           FontSize="10" FontWeight="Bold" 
+                           Margin="15,10,15,8" Opacity="0.5"/>
+
+                                                <Separator Background="#1A1A1E" Margin="5,0,5,5"/>
+
+                                                <Button Style="{StaticResource SideMenuBtn}" Content="Для работы" Height="35" FontSize="13" Padding="15,0"/>
+                                                <Button Style="{StaticResource SideMenuBtn}" Content="Для уборки" Height="35" FontSize="13" Padding="15,0"/>
+                                                <Button Style="{StaticResource SideMenuBtn}" Content="Для тренировок" Height="35" FontSize="13" Padding="15,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+
+
+
+
+
+
+
+
+
+
+
+
                                 <TextBlock Text="{Binding DurationStr}" 
                            Foreground="{StaticResource SecondaryText}" 
                            VerticalAlignment="Center" 
-                           Margin="0,0,20,0" 
+                           Margin="0,0,0,0" 
                            FontSize="14"/>
 
                                 <CheckBox Style="{StaticResource HeartToggleStyle}" 
+                          IsChecked="{Binding IsFavorite, Mode=TwoWay}"
                           VerticalAlignment="Center" 
-                          Margin="20,0,10,0"/>
+                          Margin="20,0,10,0"
+                          />
                             </StackPanel>
                         </Grid>
                     </Border>

@@ -90,7 +90,7 @@ namespace MusicAppFront.Views.Pages
                     {
                         AuthStorage.AuthStorage.SaveToken(data["token"]); // Сохраняем без хардкода путей
                     }
-
+                    
 
                     //var mainWindow = new Windows.MainWindow();
                     mainWindow.Show();

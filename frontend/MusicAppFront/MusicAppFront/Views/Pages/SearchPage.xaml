@@ -44,7 +44,12 @@
         
         <ContentControl Style="{StaticResource TrackListContainer}" Margin="0,0,0,40">
             <ItemsControl x:Name="TracksList">
-                <ItemsControl.ItemTemplate>
+
+
+                    
+
+
+                    <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Button Style="{StaticResource TrackRowStyle}" 
                                 Click="TrackRow_Click"

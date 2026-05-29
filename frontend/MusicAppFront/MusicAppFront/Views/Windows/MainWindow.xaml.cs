@@ -5,6 +5,8 @@ using MusicAppFront.Views.Pages;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
@@ -25,6 +27,7 @@ namespace MusicAppFront.Views.Windows
 {
     public partial class MainWindow : Window
     {
+        public static string currentUserName = "";
         private HomePage _homePage;
         private ProfilePage _profilePage;
         private FavoritesPage _favoritesPage;
@@ -43,6 +46,17 @@ namespace MusicAppFront.Views.Windows
 
         public bool isAlbumOpenAndActive = false;
 
+        public class FavoriteTrack
+        {
+            public int Id { get; set; }
+            public string Username { get; set; } = string.Empty;
+
+            public string Title { get; set; } = string.Empty;
+
+            public string Author { get; set; } = string.Empty;
+            public string ImageUrl { get; set; } = string.Empty;
+
+        }
 
 
 
@@ -54,11 +68,11 @@ namespace MusicAppFront.Views.Windows
             _client.BaseAddress = new Uri("https://localhost:7296/");
 
             _profilePage = new ProfilePage();
-            _favoritesPage = new FavoritesPage();
             _playlistsPage = new PlaylistsPage();
             _maxFlowPage = new MaxFlowPage();
 
             _nativePlayer = new testPlayer.NativePlayer(this);
+            _favoritesPage = new FavoritesPage(this, _nativePlayer);
             _homePage = new HomePage(this, _nativePlayer);
             MainFrame.Navigate(_homePage);
 
@@ -281,7 +295,7 @@ namespace MusicAppFront.Views.Windows
                 element = VisualTreeHelper.GetParent(element) as FrameworkElement;
             }
         }
-
+        
         private async void SearchBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter && !string.IsNullOrWhiteSpace(SearchBox.Text))
@@ -294,6 +308,29 @@ namespace MusicAppFront.Views.Windows
                         $"api/music/search?query={Uri.EscapeDataString(SearchBox.Text)}"
                     );
 
+                    var token = AuthStorage.AuthStorage.GetToken();
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        _client.DefaultRequestHeaders.Authorization =
+                            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                    }
+
+                    var favorites = await _client.GetFromJsonAsync<List<FavoriteTrack>>("api/music/listFavorites");
+
+                    if (results?.Tracks != null && favorites != null)
+                    {
+                        foreach (var track in results.Tracks)
+                        {
+                            bool isFav = favorites?.Any(f =>
+                                    string.Equals(f.Title?.Trim(), track.Title?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                                    string.Equals(f.Author?.Trim(), track.Author?.Trim(), StringComparison.OrdinalIgnoreCase)
+                                ) ?? false;
+
+                            track.SetFavoriteSilently(isFav);
+
+                            System.Diagnostics.Debug.WriteLine($"isFav {track.Title}: {track.IsFavorite}");
+                        }
+                    }
 
                     if (results != null)
                     {

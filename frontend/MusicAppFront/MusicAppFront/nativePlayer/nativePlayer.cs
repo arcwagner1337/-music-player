@@ -97,6 +97,7 @@ namespace testPlayer
             public string YtUrl { get; set; }
             public bool IsResolved { get; set; }
             public bool IsResolvingProcess { get; set; }
+            
         }
 
         public class TrackDto2
@@ -1193,6 +1194,9 @@ namespace testPlayer
 
                 // Достаем трек из прошлого
                 var previousTrack = _historyStackAlbum.Pop();
+
+
+                
 
                 if (previousTrack != null && results.Tracks != null && _currentlyPlayingTrack != null)
                 {

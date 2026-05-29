@@ -10,6 +10,8 @@
 
     public record TrackDto2(string Title, string Author, string Url, string CleanArtist, string CleanTitle, string ImageUrl);
 
+    public record FavoriteTrackDto(string UserName, string Title, string Author, string ImageUrl);
+
     public record ArtistDto(string Name, string Url, string ImageUrl, string Bio, string Id);
 
     public interface ISearchRes { }

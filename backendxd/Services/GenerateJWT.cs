@@ -23,7 +23,7 @@ namespace backendxd.Services
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
-                issuer: "music_service",
+                //issuer: "music_service",
                 claims: claims,
                 expires: DateTime.Now.AddDays(7),
                 signingCredentials: creds

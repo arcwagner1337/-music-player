@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
-System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+//System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 var builder = WebApplication.CreateBuilder(args);
 Environment.SetEnvironmentVariable("SLAVA_UKRAINI", "1");
 //builder.Services.AddDbContext<AppDbContext>(options =>
@@ -50,7 +50,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,   // Пока тетстим - false
+            ValidateIssuer = false,// Пока тетстим - false
             ValidateAudience = false,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
@@ -63,7 +63,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnAuthenticationFailed = context =>
             {
-                Console.WriteLine("Ошибка аутентификации: " + context.Exception.Message);
+                // ЭТО ВЫВЕДЕТ ПРИЧИНУ 401 В КОНСОЛЬ
+                Console.WriteLine($"[AUTH ERROR]: {context.Exception.Message}");
+                return Task.CompletedTask;
+            },
+            OnMessageReceived = context =>
+            {
+                // Логируем, видит ли сервер токен
+                var token = context.Request.Headers["Authorization"].ToString();
+                Console.WriteLine($"[AUTH] Received header: {token}");
                 return Task.CompletedTask;
             }
         };

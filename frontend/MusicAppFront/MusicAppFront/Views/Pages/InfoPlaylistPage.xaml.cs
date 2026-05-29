@@ -47,7 +47,7 @@ namespace MusicAppFront.Views.Pages
             Timeout = TimeSpan.FromSeconds(10)
         };
 
-        private static SearchPage _sp;
+       
 
         public InfoPlaylistPage(AlbumDto album, MainWindow mainWindow, NativePlayer player)
         {
@@ -324,40 +324,40 @@ namespace MusicAppFront.Views.Pages
         //}
 
 
-        private async Task StartPlayTrack(SearchResultDto.TrackDto2 track, Button btn)
-        {
-            try
-            {
-                if (btn != null) btn.IsEnabled = false;
-                _isDataLoading = true;
+        //private async Task StartPlayTrack(SearchResultDto.TrackDto2 track, Button btn)
+        //{
+        //    try
+        //    {
+        //        if (btn != null) btn.IsEnabled = false;
+        //        _isDataLoading = true;
 
-                if (_lastPlayedTrack != null) _lastPlayedTrack.IsPlaying = false;
+        //        if (_lastPlayedTrack != null) _lastPlayedTrack.IsPlaying = false;
 
-                string streamUrl = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(track.Author)}&track={Uri.EscapeDataString(track.Title)}";
+        //        string streamUrl = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(track.Author)}&track={Uri.EscapeDataString(track.Title)}";
 
-                GlobalPlayer.CurrentTrack = track;
+        //        GlobalPlayer.CurrentTrack = track;
 
-                var tcs = new TaskCompletionSource<bool>();
-                Action handler = null;
-                handler = () =>
-                {
-                    tcs.TrySetResult(true);
-                    GlobalPlayer.OnPlayingStarted -= handler; // Отписываемся, чтобы не копились
-                };
-                GlobalPlayer.OnPlayingStarted += handler;
+        //        var tcs = new TaskCompletionSource<bool>();
+        //        Action handler = null;
+        //        handler = () =>
+        //        {
+        //            tcs.TrySetResult(true);
+        //            GlobalPlayer.OnPlayingStarted -= handler; // Отписываемся, чтобы не копились
+        //        };
+        //        GlobalPlayer.OnPlayingStarted += handler;
 
-                GlobalPlayer.Play(streamUrl);
-                await Task.WhenAny(tcs.Task, Task.Delay(10000));
+        //        GlobalPlayer.Play(streamUrl);
+        //        await Task.WhenAny(tcs.Task, Task.Delay(10000));
 
-                track.IsPlaying = true;
-                _lastPlayedTrack = track;
-            }
-            finally
-            {
-                if (btn != null) btn.IsEnabled = true;
-                _isDataLoading = false;
-            }
-        }
+        //        track.IsPlaying = true;
+        //        _lastPlayedTrack = track;
+        //    }
+        //    finally
+        //    {
+        //        if (btn != null) btn.IsEnabled = true;
+        //        _isDataLoading = false;
+        //    }
+        //}
 
 
         private async Task LoadTracks(string albumId)

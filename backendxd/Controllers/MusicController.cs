@@ -1,6 +1,10 @@
-﻿using backendxd.DTOS;
+﻿using backendxd.Data;
+using backendxd.DTOS;
+using backendxd.Models;
 using backendxd.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using YoutubeExplode;
 using YoutubeExplode.Videos.Streams;
 
@@ -13,10 +17,12 @@ namespace backendxd.Controllers
     {
         private readonly MusicService2 _musicService;
         private readonly YoutubeClient _yt = new YoutubeClient();
+        private readonly AppDbContext _context;
 
-        public MusicController(MusicService2 musicService)
+        public MusicController(MusicService2 musicService, AppDbContext context)
         {
             _musicService = musicService;
+            _context = context;
         }
 
 
@@ -72,6 +78,68 @@ namespace backendxd.Controllers
         //        Duration = ytInfo[1]
         //    });
         //}
+
+
+     
+
+        [HttpPost("toggle")]
+        public async Task<IActionResult> Toggle([FromBody] FavoriteTrackDto req)
+        {
+            // Ищем трек в базе
+            var existing = await _context.FavoriteTracks
+                .FirstOrDefaultAsync(f => f.Username == req.UserName
+                                       && f.Title == req.Title
+                                       && f.Author == req.Author);
+
+            if (existing != null)
+            {
+                // Если есть — удаляем (отлайкиваем)
+                _context.FavoriteTracks.Remove(existing);
+            }
+            else
+            {
+                // Если нет — добавляем
+                _context.FavoriteTracks.Add(new FavoriteTrack
+                {
+                    Username = req.UserName,
+                    Title = req.Title,
+                    Author = req.Author,
+                    ImageUrl = req.ImageUrl, // Убедись, что добавил Url в модель FavoriteTrack
+                });
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { isFavorite = existing == null });
+        }
+
+
+        [Authorize]
+        [HttpGet("getName")]
+
+        public async Task<IActionResult> getName()
+        {
+            var username = GetUsername();
+
+            return Ok(username);
+        }
+        private string GetUsername() =>
+        User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+        ?? User.Identity?.Name ?? "";
+
+        [HttpGet("listFavorites")] 
+        public async Task<IActionResult> GetFavorites()
+        {
+            var username = GetUsername();
+            if (string.IsNullOrEmpty(username)) return Unauthorized();
+
+            var list = await _context.FavoriteTracks
+                .Where(f => f.Username == username)
+                .ToListAsync();
+
+            return Ok(list);
+        }
+
+
 
 
         [HttpPost("GetNextRecommended0")]

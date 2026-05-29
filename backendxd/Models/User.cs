@@ -39,4 +39,26 @@ namespace backendxd.Models
         public DateTime expires_at { get; set; } = DateTime.UtcNow.AddMinutes(15);
     }
 
+
+    [Table("favorite_tracks")]
+    public class FavoriteTrack
+    {
+        [Key]
+        [Column("id")]
+        public int Id { get; set; }
+
+        [Column("username")]
+        public string Username { get; set; } = string.Empty;
+
+        [Column("title")]
+        public string Title { get; set; } = string.Empty;
+
+        [Column("author")]
+        public string Author { get; set; } = string.Empty;
+
+        [Column("image_url")]
+        public string ImageUrl { get; set; } = string.Empty;
+
+    }
+
 }
