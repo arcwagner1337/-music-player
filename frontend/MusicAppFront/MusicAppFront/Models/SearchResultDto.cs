@@ -62,7 +62,7 @@ namespace MusicAppFront.Models
                 }
             }
             private static HttpClient _httpClient = new HttpClient { BaseAddress = new Uri("https://localhost:7296/") };
-            public static string CurrentUsername = "asdqwe";
+            public static string CurrentUsername = MusicAppFront.Views.Windows.MainWindow._currentUserName;
             private async Task ToggleFavoriteAsync()
             {
 

@@ -32,7 +32,18 @@ namespace backendxd.Data
         title TEXT,
         author TEXT,
         image_url TEXT
-        );";
+        );
+        
+        CREATE TABLE IF NOT EXISTS playlists_tracks (
+        id SERIAL PRIMARY KEY,
+        playlist_name TEXT NOT NULL,      -- Название самого плейлиста
+        username TEXT NOT NULL,           -- Чей плейлист (владелец)
+        track_title TEXT,                 -- Название трека (может быть NULL для пустого плейлиста)
+        track_artist TEXT,                -- Исполнитель (может быть NULL)
+        image_url TEXT                    -- Ссылка на обложку трека (может быть NULL)
+        );
+        CREATE INDEX IF NOT EXISTS idx_playlists_user_name ON playlists_tracks (username, playlist_name);
+";
 
             await context.Database.ExecuteSqlRawAsync(sql);
         }

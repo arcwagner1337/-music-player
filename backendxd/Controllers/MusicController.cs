@@ -432,5 +432,236 @@ namespace backendxd.Controllers
             return Ok(recommendedTrack);
         }
 
+
+        [HttpPost("create-playlist")]
+        public async Task<IActionResult> CreatePlaylist([FromBody] CreatePlaylistDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.PlaylistName) || string.IsNullOrWhiteSpace(dto.Username))
+            {
+                return BadRequest(new { message = "Название плейлиста и имя пользователя обязательны" });
+            }
+
+            // Проверяем, может у этого юзера уже есть плейлист с таким именем?
+            bool exists = await _context.PlaylistsTracks.AnyAsync(p =>
+                p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
+
+            if (exists)
+            {
+                return BadRequest(new { message = "Плейлист с таким названием уже существует!" });
+            }
+
+            var newPlaylistRow = new PlaylistTrack
+            {
+                PlaylistName = dto.PlaylistName,
+                Username = dto.Username,
+                TrackTitle = null,  // Пустой при создании
+                TrackArtist = null,
+                ImageUrl = null
+            };
+
+            _context.PlaylistsTracks.Add(newPlaylistRow);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Плейлист успешно создан!" });
+        }
+
+        // 2. РОУТ: Добавить трек в существующий плейлист
+        [HttpPost("add-track-to-playlist")]
+        public async Task<IActionResult> AddTrackToPlaylist([FromBody] AddTrackDto dto)
+        {
+            // Ищем строку-заглушку плейлиста, чтобы убедиться, что он вообще существует
+            var playlistExists = await _context.PlaylistsTracks.AnyAsync(p =>
+                p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
+
+            if (!playlistExists)
+            {
+                return NotFound(new { message = "Плейлист не найден" });
+            }
+
+            // Проверяем, если первая запись плейлиста была пустой заглушкой (TrackTitle == null), 
+            // мы можем использовать её, чтобы не плодить лишнюю пустую строку.
+            var emptyRow = await _context.PlaylistsTracks.FirstOrDefaultAsync(p =>
+                p.Username == dto.Username &&
+                p.PlaylistName == dto.PlaylistName &&
+                p.TrackTitle == null);
+
+            if (emptyRow != null)
+            {
+                // Заполняем пустую заглушку первым треком
+                emptyRow.TrackTitle = dto.TrackTitle;
+                emptyRow.TrackArtist = dto.TrackArtist;
+                emptyRow.ImageUrl = dto.ImageUrl;
+            }
+            else
+            {
+                // Если там уже есть треки, просто добавляем новую строку с дублированием имени плейлиста
+                var newTrackRow = new PlaylistTrack
+                {
+                    PlaylistName = dto.PlaylistName,
+                    Username = dto.Username,
+                    TrackTitle = dto.TrackTitle,
+                    TrackArtist = dto.TrackArtist,
+                    ImageUrl = dto.ImageUrl
+                };
+                _context.PlaylistsTracks.Add(newTrackRow);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Трек добавлен в плейлист!" });
+        }
+
+
+        [HttpPost("user-all-playLists")]
+        public async Task<IActionResult> GetUserPlaylists([FromBody] GetUserPlaylistsDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Username))
+                return BadRequest(new { message = "Имя пользователя обязательно" });
+
+            var playlists = await _context.PlaylistsTracks
+                .Where(p => p.Username == dto.Username)
+                .GroupBy(p => p.PlaylistName)
+                .Select(g => new
+                {
+                    PlaylistName = g.Key,
+                    ImageUrl = g.FirstOrDefault(x => x.ImageUrl != null) != null
+                               ? g.FirstOrDefault(x => x.ImageUrl != null)!.ImageUrl
+                               : null
+                })
+                .ToListAsync();
+
+            return Ok(playlists);
+        }
+
+
+        [HttpPost("playlist-tracks")]
+        public async Task<IActionResult> GetPlaylistTracks([FromBody] GetPlaylistTracksDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.PlaylistName))
+                return BadRequest(new { message = "Не все поля заполнены" });
+
+            var tracks = await _context.PlaylistsTracks
+                .Where(p => p.Username == dto.Username && p.PlaylistName == dto.PlaylistName && p.TrackTitle != null)
+                .Select(p => new
+                {
+                    p.Id,
+                    Title = p.TrackTitle,
+                    Artist = p.TrackArtist,
+                    ImageUrl = p.ImageUrl
+                })
+                .ToListAsync();
+
+            return Ok(tracks);
+        }
+
+        [HttpPost("remove-track")]
+        public async Task<IActionResult> RemoveTrackFromPlaylist([FromBody] RemoveTrackByFieldsDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Username) ||
+                string.IsNullOrWhiteSpace(dto.PlaylistName) ||
+                string.IsNullOrWhiteSpace(dto.TrackTitle))
+            {
+                return BadRequest(new { message = "Не все поля заполнены" });
+            }
+
+            // Ищем именно ту строку, где совпадает ВСЁ: юзер, плейлист, название трека и артист
+            var trackRow = await _context.PlaylistsTracks.FirstOrDefaultAsync(p =>
+                p.Username == dto.Username &&
+                p.PlaylistName == dto.PlaylistName &&
+                p.TrackTitle == dto.TrackTitle &&
+                p.TrackArtist == dto.TrackArtist);
+
+            if (trackRow == null)
+                return NotFound(new { message = "Такой трек в плейлисте не найден" });
+
+            // Считаем, сколько всего треков/строк у этого плейлиста
+            var totalRows = await _context.PlaylistsTracks.CountAsync(p =>
+                p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
+
+            if (totalRows == 1)
+            {
+                // Если трек был последним, затираем данные трека, оставляя пустую заглушку плейлиста
+                trackRow.TrackTitle = null;
+                trackRow.TrackArtist = null;
+                trackRow.ImageUrl = null;
+            }
+            else
+            {
+                // Если есть другие треки, просто удаляем эту строку
+                _context.PlaylistsTracks.Remove(trackRow);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Трек успешно удален из плейлиста" });
+        }
+
+        [HttpPost("delete-playlist")]
+        public async Task<IActionResult> DeletePlaylist([FromBody] DeletePlaylistDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.PlaylistName))
+                return BadRequest(new { message = "Не все поля заполнены" });
+
+            var playlistRows = await _context.PlaylistsTracks
+                .Where(p => p.Username == dto.Username && p.PlaylistName == dto.PlaylistName)
+                .ToListAsync();
+
+            if (playlistRows.Count == 0)
+            {
+                return NotFound(new { message = "Плейлист не найден" });
+            }
+
+            _context.PlaylistsTracks.RemoveRange(playlistRows);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"Плейлист \"{dto.PlaylistName}\" полностью удален" });
+        }
+
+
     }
+
+
+
+
+    // Вспомогательные DTO для приема JSON-данных
+    public class CreatePlaylistDto
+    {
+        public string PlaylistName { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+    }
+
+    public class AddTrackDto
+    {
+        public string PlaylistName { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string TrackTitle { get; set; } = string.Empty;
+        public string TrackArtist { get; set; } = string.Empty;
+        public string ImageUrl { get; set; } = string.Empty;
+    }
+
+    public class GetUserPlaylistsDto
+    {
+        public string Username { get; set; } = string.Empty;
+    }
+
+    public class GetPlaylistTracksDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public string PlaylistName { get; set; } = string.Empty;
+    }
+
+    public class RemoveTrackByFieldsDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public string PlaylistName { get; set; } = string.Empty;
+        public string TrackTitle { get; set; } = string.Empty;
+        public string TrackArtist { get; set; } = string.Empty;
+    }
+
+    public class DeletePlaylistDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public string PlaylistName { get; set; } = string.Empty;
+    }
+
+
 }
+

@@ -18,12 +18,14 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.IO;
 using MusicAppFront.AuthStorage;
+using MusicAppFront.Views.Windows;
 
 namespace MusicAppFront.Views.Pages
 {
 
     public partial class LoginPage : Page
     {
+        //public static string currentUserName = "";
         private static readonly CookieContainer _cookieContainer = new CookieContainer();
         private static readonly HttpClient _client = new HttpClient(new HttpClientHandler
 
@@ -90,7 +92,8 @@ namespace MusicAppFront.Views.Pages
                     {
                         AuthStorage.AuthStorage.SaveToken(data["token"]); // Сохраняем без хардкода путей
                     }
-                    
+                    //System.Diagnostics.Debug.WriteLine("data[\"username\"]:  " + data["username"]);
+                    //currentUserName = data["username"];
 
                     //var mainWindow = new Windows.MainWindow();
                     mainWindow.Show();

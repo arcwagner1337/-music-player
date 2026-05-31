@@ -13,6 +13,8 @@ namespace backendxd.Data
 
         public DbSet<FavoriteTrack> FavoriteTracks { get; set; }
 
+        public DbSet<PlaylistTrack> PlaylistsTracks { get; set; }
+
         //остальные таблицы добавляются по аналогии
     }
 }

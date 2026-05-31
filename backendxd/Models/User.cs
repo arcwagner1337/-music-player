@@ -61,4 +61,28 @@ namespace backendxd.Models
 
     }
 
+    [Table("playlists_tracks")]
+    public class PlaylistTrack
+    {
+        [Key]
+        [Column("id")]
+        public int Id { get; set; }
+
+        [Column("playlist_name")]
+        public string PlaylistName { get; set; } = string.Empty;
+
+        [Column("username")]
+        public string Username { get; set; } = string.Empty;
+
+        [Column("track_title")]
+        public string? TrackTitle { get; set; } // string? означает, что может быть NULL
+
+        [Column("track_artist")]
+        public string? TrackArtist { get; set; }
+
+        [Column("image_url")]
+        public string? ImageUrl { get; set; }
+    }
+
+
 }

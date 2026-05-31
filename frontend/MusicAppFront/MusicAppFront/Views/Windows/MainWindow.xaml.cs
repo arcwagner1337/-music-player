@@ -1,6 +1,7 @@
 ﻿using LibVLCSharp.Shared;
 using MusicAppFront.browserMusicPlayer;
 using MusicAppFront.Models;
+using MusicAppFront.Resources;
 using MusicAppFront.Views.Pages;
 using System;
 using System.Collections.Generic;
@@ -27,7 +28,9 @@ namespace MusicAppFront.Views.Windows
 {
     public partial class MainWindow : Window
     {
-        public static string currentUserName = "";
+        //public static string _currentUserName = MusicAppFront.Views.Windows.MainWindow._currentUserName;
+        public static string _currentUserName = "";
+
         private HomePage _homePage;
         private ProfilePage _profilePage;
         private FavoritesPage _favoritesPage;
@@ -42,6 +45,7 @@ namespace MusicAppFront.Views.Windows
         public SearchResultDto GlobalResults = new SearchResultDto();
         public SearchResultDto GlobalAlbumResults = new SearchResultDto();
         public ObservableCollection<testPlayer.NativePlayer.TrackWithStreamDto> HistoryList = new ObservableCollection<testPlayer.NativePlayer.TrackWithStreamDto>();
+        public ObservableCollection<string> UserPlaylists { get; set; } = new ObservableCollection<string>();
         private MusicAppFront.Views.Pages.FullPlayerPage _singleFullPlayerPage;
 
         public bool isAlbumOpenAndActive = false;
@@ -57,15 +61,165 @@ namespace MusicAppFront.Views.Windows
             public string ImageUrl { get; set; } = string.Empty;
 
         }
+        public static MainWindow Instance { get; private set; }
+
+        public void InitPlaylistCommandBindings()
+        {
+            // Регистрируем обработчик для добавления трека
+            CommandBindings.Add(new CommandBinding(PlaylistCommands.AddTrackToPlaylist, ExecuteAddTrackToPlaylist));
+            // Регистрируем обработчик для редиректа
+            CommandBindings.Add(new CommandBinding(PlaylistCommands.RedirectToCreatePlaylist, ExecuteRedirectToCreatePlaylist));
+
+            // Сразу же подгрузим плейлисты один раз при старте
+            _ = RefreshUserPlaylistsAsync();
+        }
+
+        // 1. Метод подгрузки списка плейлистов (вызывай его также при успешном создании нового плейлиста!)
+        public async Task RefreshUserPlaylistsAsync()
+        {
+            try
+            {
+                // Ждем, пока подгрузится реальный _currentUserName из токена
+                // Подставил "Alexander", "asd" или пустую строку — на случай дефолтов
+                while (string.IsNullOrEmpty(_currentUserName) || _currentUserName == "asd" || _currentUserName == "Alexander")
+                {
+                    await Task.Delay(100);
+                }
+
+                // Анонимный объект, в точности повторяющий твою JSON-структуру для тела запроса
+                var requestBody = new { username = _currentUserName };
+
+                // Отправляем POST запрос вместо GET
+                var response = await _client.PostAsJsonAsync("api/music/user-all-playLists", requestBody);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    // Читаем JSON документ, чтобы вытащить названия без создания новых классов-моделей
+                    using (var jsonDoc = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonDocument>())
+                    {
+                        if (jsonDoc != null)
+                        {
+                            UserPlaylists.Clear();
+
+                            // Если бэк возвращает массив объектов (например: [ { "id": 1, "playlistName": "Для работы" }, ... ])
+                            if (jsonDoc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            {
+                                foreach (var item in jsonDoc.RootElement.EnumerateArray())
+                                {
+                                    // Проверяем свойство с именем плейлиста. 
+                                    // Посмотри в свагере, как оно точно называется: "playlistName", "name" или "title"
+                                    if (item.TryGetProperty("playlistName", out var nameProp) ||
+                                        item.TryGetProperty("name", out nameProp))
+                                    {
+                                        string pName = nameProp.GetString();
+                                        if (!string.IsNullOrEmpty(pName))
+                                        {
+                                            UserPlaylists.Add(pName);
+                                        }
+                                    }
+                                }
+                            }
+                            // Если вдруг бэк возвращает просто массив строк (например: [ "Для работы", "Для уборки" ])
+                            else if (jsonDoc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            {
+                                foreach (var item in jsonDoc.RootElement.EnumerateArray())
+                                {
+                                    UserPlaylists.Add(item.GetString());
+                                }
+                            }
+                        }
+                    }
+                    Debug.WriteLine($"[MainWindow] Успешно синхронизировано плейлистов: {UserPlaylists.Count}");
+                }
+                else
+                {
+                    Debug.WriteLine($"[MainWindow] Бэк ответил ошибкой при получении плейлистов: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка обновления плейлистов: {ex.Message}");
+            }
+        }
+
+        // 2. Логика клика по кнопке плейлиста в Popup
+        private async void ExecuteAddTrackToPlaylist(object sender, ExecutedRoutedEventArgs e)
+        {
+            //string targetPlaylistName = e.Parameter as string; // Получили имя плейлиста из CommandParameter
+
+            //// Ищем, какой трек сейчас выбран/находится под мышкой в текущем контексте данных.
+            //// e.OriginalSource — это кнопка, на которую нажали. Её DataContext в родителе — это наш трек TrackDto2
+            //var element = e.OriginalSource as FrameworkElement;
+            //var track = element?.DataContext as SearchResultDto.TrackDto2;
+
+            e.Handled = true;
+
+            if (e.Parameter is object[] values && values.Length >= 2)
+            {
+                // 1. Достаем имя плейлиста
+                string targetPlaylistName = values[0] as string;
+
+                // 2. Достаем трек напрямую, без обхода деревьев!
+                // Замени YourTrackClass на свой реальный класс трека (например, TrackDto2)
+                var track = values[1] as SearchResultDto.TrackDto2;
+
+                // Проверяем, что поймали
+                MessageBox.Show($"Клик сработал!\nПлейлист: {targetPlaylistName}\nТрек: {track?.Title ?? "НЕ НАЙДЕН"}");
+
+                if (track != null && !string.IsNullOrEmpty(targetPlaylistName))
+                {
+                    var payload = new
+                    {
+                        PlaylistName = targetPlaylistName,
+                        Username = _currentUserName,
+                        TrackTitle = track.Title,
+                        TrackArtist = track.Author,
+                        ImageUrl = track.ImageUrl
+                    };
+
+                    try
+                    {
+                        var response = await _client.PostAsJsonAsync("api/music/add-track-to-playlist", payload);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            MessageBox.Show($"Трек добавлен в плейлист \"{targetPlaylistName}\"!");
+                        }
+                        else
+                        {
+                            MessageBox.Show("Не удалось добавить трек.");
+                        }
+                    }
+                    catch (Exception ex) { MessageBox.Show($"Ошибка сети: {ex.Message}"); }
+                }
+            }
+            else
+            {
+                MessageBox.Show("Ошибка: Параметры команды не дошли.");
+            }
+        }
+
+        // 3. Логика клика по кнопке "+ Создать плейлист" в Popup
+        private void ExecuteRedirectToCreatePlaylist(object sender, ExecutedRoutedEventArgs e)
+        {
+            e.Handled = true;
+            // Перенаправляем главную страницу на создание плейлиста
+            if (MainFrame != null)
+            {
+                MainFrame.Navigate(new MusicAppFront.Views.Pages.CreatePlaylist(this));
+            }
+        }
 
 
 
         public MainWindow()
         {
             InitializeComponent();
-
+            Instance = this;
+            InitPlaylistCommandBindings();
             _client = new HttpClient();
             _client.BaseAddress = new Uri("https://localhost:7296/");
+
+            _ = LoadCurrentUserDataAsync();
 
             _profilePage = new ProfilePage();
             _playlistsPage = new PlaylistsPage();
@@ -115,9 +269,9 @@ namespace MusicAppFront.Views.Windows
 
                         // Запускаем переключение трека в фоне
 
-                        if (isAlbumOpenAndActive) { await _nativePlayer.PlayNextAlbumTrackAsync(GlobalAlbumResults); } 
+                        if (isAlbumOpenAndActive) { await _nativePlayer.PlayNextAlbumTrackAsync(GlobalAlbumResults); }
                         else { await _nativePlayer.PlayNextTrackAsync(GlobalResults); }
-                            
+
                     }
                     catch (Exception ex)
                     {
@@ -147,9 +301,9 @@ namespace MusicAppFront.Views.Windows
 
         private async void BtnTest_Click(object sender, RoutedEventArgs e)
         {
-            
+
             await _nativePlayer.test();
-            
+
         }
 
 
@@ -272,30 +426,42 @@ namespace MusicAppFront.Views.Windows
             while (element != null)
             {
                 // Проверяем, что это наша карточка
-                if (element is ContentControl cc && cc.Style == (Style)FindResource("PlaylistCardStyle"))
+                if (element is ContentControl cc)
                 {
-                    // Достаем данные альбома из DataContext этой карточки
-                    if (cc.DataContext is AlbumDto album)
+                    if (cc.Style == (Style)FindResource("PlaylistCardStyle"))
                     {
-                        // Передаем альбом в конструктор страницы
-                        //isAlbumOpen = true;
-                        MainFrame.Navigate(new InfoPlaylistPage(album, this, _nativePlayer));
-                    }
-                    else
-                    {
-                        // Если данных нет, просто открываем (как было), 
-                        // но лучше проверить, почему DataContext пустой
-                        //isAlbumOpen = true;
-                        MainFrame.Navigate(new InfoPlaylistPage(null, this, _nativePlayer));
+
+                        // Достаем данные альбома из DataContext этой карточки
+                        if (cc.DataContext is AlbumDto album)
+                        {
+                            // Передаем альбом в конструктор страницы
+                            //isAlbumOpen = true;
+                            MainFrame.Navigate(new InfoPlaylistPage(album, this, _nativePlayer));
+                        }
+                        else
+                        {
+                            // Если данных нет, просто открываем (как было), 
+                            // но лучше проверить, почему DataContext пустой
+                            //isAlbumOpen = true;
+                            MainFrame.Navigate(new InfoPlaylistPage(null, this, _nativePlayer));
+                        }
+
+                        e.Handled = true;
+                        break;
+
                     }
 
-                    e.Handled = true;
-                    break;
+                    else if (cc.Style == (Style)FindResource("CreateCardStyle"))
+                    {
+                        MainFrame.Navigate(new CreatePlaylist(this));
+                        e.Handled = true;
+                        break;
+                    }
                 }
                 element = VisualTreeHelper.GetParent(element) as FrameworkElement;
             }
         }
-        
+
         private async void SearchBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter && !string.IsNullOrWhiteSpace(SearchBox.Text))
@@ -419,7 +585,40 @@ namespace MusicAppFront.Views.Windows
         }
 
 
+        private async Task LoadCurrentUserDataAsync()
+        {
+            try
+            {
+                string token = AuthStorage.AuthStorage.GetToken();
+                if (string.IsNullOrEmpty(token)) return;
 
+                var request = new HttpRequestMessage(HttpMethod.Get, "api/user/me");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                var response = await _client.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    // Читаем JSON "на лету" как документ без привязки к классам
+                    using (var jsonDoc = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonDocument>())
+                    {
+                        if (jsonDoc != null && jsonDoc.RootElement.TryGetProperty("username", out var usernameRoot))
+                        {
+                            string username = usernameRoot.GetString();
+                            if (!string.IsNullOrWhiteSpace(username))
+                            {
+                                _currentUserName = username;
+                                Debug.WriteLine($"[MainWindow] Юзер успешно подгружен без DTO: {_currentUserName}");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MainWindow] Ошибка загрузки юзера: {ex.Message}");
+            }
+        }
 
 
         private void Button_Click(object sender, RoutedEventArgs e)
