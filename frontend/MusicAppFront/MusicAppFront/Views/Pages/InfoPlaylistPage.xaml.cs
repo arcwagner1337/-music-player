@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Numerics;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -33,6 +34,11 @@ namespace MusicAppFront.Views.Pages
 
         private readonly MainWindow _mainWindow;
         private testPlayer.NativePlayer _nativePlayer;
+        public static bool isPlaylist = false;
+
+        private string _customPlaylistName;
+private bool _isCustomPlaylist = false;
+
         private static readonly CookieContainer _cookieContainer = new CookieContainer();
         private Button _lastPlayedButton;
         private static readonly HttpClient _client = new HttpClient(new HttpClientHandler
@@ -359,13 +365,77 @@ namespace MusicAppFront.Views.Pages
         //    }
         //}
 
+        public class PlaylistTrackDto
+        {
+            [JsonPropertyName("id")]
+            public int Id { get; set; }
 
+            // Мапим "title" из JSON в свойство
+            [JsonPropertyName("title")]
+            public string TrackTitle { get; set; }
+
+            // Мапим "artist" из JSON в свойство
+            [JsonPropertyName("artist")]
+            public string TrackArtist { get; set; }
+
+            [JsonPropertyName("imageUrl")]
+            public string ImageUrl { get; set; }
+        }
         private async Task LoadTracks(string albumId)
         {
             try
             {
 
-                var response = await _client.GetFromJsonAsync<List<SearchResultDto.TrackDto2>>($"https://localhost:7296/api/music/album/{albumId}");
+                //var response = await _client.GetFromJsonAsync<List<SearchResultDto.TrackDto2>>($"https://localhost:7296/api/music/album/{albumId}");
+
+                List<SearchResultDto.TrackDto2> response = null;
+
+                // Проверяем, это наш локальный плейлист или обычный онлайн-альбом
+                if (albumId != null && albumId.StartsWith("local_"))
+                {
+                    string playlistName = albumId.Replace("local_", "");
+
+                    var requestBody = new
+                    {
+                        username = "asdqwe",
+                        playlistName = playlistName
+                    };
+
+                    var httpResponse = await _client.PostAsJsonAsync("https://localhost:7296/api/music/playlist-tracks", requestBody);
+
+                    string rawJson = await httpResponse.Content.ReadAsStringAsync();
+                    System.Diagnostics.Debug.WriteLine(rawJson);
+
+                    if (httpResponse.IsSuccessStatusCode)
+                    {
+                        // 1. Читаем данные в промежуточный список (в твою новую ДТОшку)
+                        var rawTracks = await httpResponse.Content.ReadFromJsonAsync<List<PlaylistTrackDto>>();
+
+                        if (rawTracks != null)
+                        {
+                            // 2. Мапим их на лету в TrackDto2, который ждет XAML и плеер
+                            response = rawTracks.Select(t => new SearchResultDto.TrackDto2
+                            {
+                                Title = t.TrackTitle ?? "Без названия",
+                                Author = t.TrackArtist ?? "Неизвестный исполнитель",
+                                ImageUrl = t.ImageUrl ?? "pack://application:,,,/Resources/default_playlist.png",
+                                Url = null,         // Если ссылки на стрим в бд нет, оставляем null
+                                CleanTitle = t.TrackTitle ?? "Без названия"
+                            }).ToList();
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Ошибка бэкенда: {httpResponse.StatusCode}");
+                        return;
+                    }
+                }
+                else
+                {
+                    // Старый добрый GET-запрос для обычных онлайн-альбомов
+                    response = await _client.GetFromJsonAsync<List<SearchResultDto.TrackDto2>>($"https://localhost:7296/api/music/album/{albumId}");
+                }
+
 
 
                 if (response != null)

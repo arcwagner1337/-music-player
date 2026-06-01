@@ -22,6 +22,8 @@ namespace MusicAppFront.Resources
             typeof(PlaylistCommands)
         );
 
+        public static readonly RoutedUICommand OpenPlaylist = new RoutedUICommand();
+
 
     }
 }

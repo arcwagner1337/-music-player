@@ -4,6 +4,8 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:MusicAppFront.Views.Pages"
+      xmlns:win="clr-namespace:MusicAppFront.Views.Windows"
+      xmlns:locall="clr-namespace:MusicAppFront.Resources"
       mc:Ignorable="d" 
       Title="PlaylistsPage">
 
@@ -17,35 +19,37 @@
                            Margin="10,0,0,30"/>
 
                 <WrapPanel Orientation="Horizontal">
-                    <Button Style="{StaticResource PlaylistCardStyle}"/>
-                    <Button Style="{StaticResource PlaylistCardStyle}"/>
-                    <Button Style="{StaticResource PlaylistCardStyle}"/>
 
-                    <Button Style="{StaticResource CreateCardStyle}">
+                    <ItemsControl ItemsSource="{Binding Source={x:Static win:MainWindow.Instance}, Path=UserPlaylists}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource PlaylistCardStyle}" 
+                        Content="{Binding}"
+                        Command="{x:Static locall:PlaylistCommands.OpenPlaylist}"
+                        CommandParameter="{Binding}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Button Style="{StaticResource CreateCardStyle}"
+            Command="{x:Static locall:PlaylistCommands.RedirectToCreatePlaylist}">
                         <StackPanel>
-                            <Border Width="160" 
-                                    Height="160" 
-                                    CornerRadius="15" 
-                                    Background="{StaticResource AccentGradient}"
-                                    Margin="0,0,0,12">
-                                <TextBlock Text="+" 
-                                           Foreground="Black" 
-                                           FontSize="60" 
-                                           HorizontalAlignment="Center" 
-                                           VerticalAlignment="Center" 
-                                           Opacity="0.4"/>
+                            <Border Width="160" Height="160" CornerRadius="15" 
+                    Background="{StaticResource AccentGradient}" Margin="0,0,0,12">
+                                <TextBlock Text="+" Foreground="Black" FontSize="60" 
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.4"/>
                             </Border>
-                            <TextBlock Text="Создать плейлист" 
-                                       Foreground="White" 
-                                       FontWeight="Bold" 
-                                       FontSize="16" 
-                                       Margin="5,0,0,0"/>
-                            <TextBlock Text="Новая подборка" 
-                                       Foreground="{StaticResource AccentGradient}" 
-                                       FontSize="12"
-                                       Margin="5,4,0,0"/>
+                            <TextBlock Text="Создать плейлист" Foreground="White" FontWeight="Bold" FontSize="16" Margin="5,0,0,0"/>
+                            <TextBlock Text="Новая подборка" Foreground="{StaticResource AccentGradient}" FontSize="12" Margin="5,4,0,0"/>
                         </StackPanel>
                     </Button>
+
                 </WrapPanel>
             </StackPanel>
         </ScrollViewer>

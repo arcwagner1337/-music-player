@@ -614,7 +614,7 @@
                                 </Border>
                             </Grid>
                             <!-- Заголовки (потом заменим на Binding) -->
-                            <TextBlock Text="{Binding Name}"
+                            <TextBlock Text="{TemplateBinding Content}"
                                            Foreground="White" 
                                            FontWeight="Bold" 
                                            FontSize="15" 

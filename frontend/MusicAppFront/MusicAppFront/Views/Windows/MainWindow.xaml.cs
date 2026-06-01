@@ -70,6 +70,8 @@ namespace MusicAppFront.Views.Windows
             // Регистрируем обработчик для редиректа
             CommandBindings.Add(new CommandBinding(PlaylistCommands.RedirectToCreatePlaylist, ExecuteRedirectToCreatePlaylist));
 
+            CommandBindings.Add(new CommandBinding(PlaylistCommands.OpenPlaylist, ExecuteOpenPlaylist));
+
             // Сразу же подгрузим плейлисты один раз при старте
             _ = RefreshUserPlaylistsAsync();
         }
@@ -209,6 +211,26 @@ namespace MusicAppFront.Views.Windows
             }
         }
 
+        private void ExecuteOpenPlaylist(object sender, ExecutedRoutedEventArgs e)
+        {
+            e.Handled = true;
+
+            // В параметр (e.Parameter) прилетает строка с названием плейлиста
+            string playlistName = e.Parameter as string;
+
+            if (!string.IsNullOrEmpty(playlistName))
+            {
+                var fakeAlbum = new SearchResultDto.AlbumDto(
+                    playlistName,                                         // Name
+                    "pack://application:,,,/Resources/default_playlist.png", // ImageUrl
+                    playlistName,                              // Id (с меткой для бэка/фронта)
+                    null,                                                 // Url
+                    null                                                  // Playcount
+                );
+
+                MessageBox.Show($"Открываем плейлист: {playlistName}"); // Временная заглушка для проверки
+            }
+        }
 
 
         public MainWindow()
@@ -437,6 +459,20 @@ namespace MusicAppFront.Views.Windows
                             // Передаем альбом в конструктор страницы
                             //isAlbumOpen = true;
                             MainFrame.Navigate(new InfoPlaylistPage(album, this, _nativePlayer));
+                        }
+                        else if (cc.DataContext is string playlistName)
+                        {
+                            // Мапим строку под формат AlbumDto через его конструктор
+                            var fakeAlbum = new SearchResultDto.AlbumDto(
+                                playlistName,                                             // Name
+                                "pack://application:,,,/Resources/default_playlist.png",    // ImageUrl (твоя заглушка)
+                                "local_" + playlistName,                                  // Id с префиксом для бэкенда
+                                null,                                                     // Url
+                                null                                                      // Playcount
+                            );
+
+                            // Передаем созданный фейковый альбом в ту же самую страницу!
+                            MainFrame.Navigate(new InfoPlaylistPage(fakeAlbum, this, _nativePlayer));
                         }
                         else
                         {
