@@ -14,14 +14,13 @@ namespace MusicAppFront.Models
     {
         public class TrackDto2 : INotifyPropertyChanged
         {
-            // Стандартные свойства для данных
+        
             public string Title { get; set; }
             public string Author { get; set; }
             public string Url { get; set; }
             public string ImageUrl { get; set; }
             public string CleanTitle { get; set; }
 
-            // Свойства с уведомлением об изменении (для UI)
             private bool _isPlaying;
             public bool IsPlaying
             {
@@ -57,11 +56,14 @@ namespace MusicAppFront.Models
                 {
                     _isFavorite = value;
                     OnPropertyChanged("IsFavorite");
-                    // ТУТ ВЫЗЫВАЕМ МЕТОД СОХРАНЕНИЯ
+                  
                     Task.Run(() => ToggleFavoriteAsync());
                 }
             }
-            private static HttpClient _httpClient = new HttpClient { BaseAddress = new Uri("https://localhost:7296/") };
+
+            private static HttpClient _httpClient = new HttpClient { BaseAddress = new Uri(App.Settings.BaseAddress) };
+
+
             public static string CurrentUsername = MusicAppFront.Views.Windows.MainWindow._currentUserName;
             private async Task ToggleFavoriteAsync()
             {
@@ -76,8 +78,7 @@ namespace MusicAppFront.Models
 
                 var content = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
                 await _httpClient.PostAsync("api/music/toggle", content);
-                // Вся логика API лежит прямо тут, внутри объекта трека!
-                // Используй статический HttpClient или передавай его сюда.
+
                 System.Diagnostics.Debug.WriteLine($"API Call: {Title} is now {IsFavorite}");
             }
 

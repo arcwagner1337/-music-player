@@ -1,5 +1,5 @@
 ﻿using LibVLCSharp.Shared;
-using MusicAppFront.browserMusicPlayer;
+
 using MusicAppFront.Models;
 using MusicAppFront.Resources;
 using MusicAppFront.Views.Pages;
@@ -19,8 +19,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using DotNetEnv;
 
-using static MusicAppFront.browserMusicPlayer.BrowserMusicPlayer;
+
 using static MusicAppFront.Models.SearchResultDto;
 using static testPlayer.NativePlayer;
 
@@ -28,7 +29,8 @@ namespace MusicAppFront.Views.Windows
 {
     public partial class MainWindow : Window
     {
-        //public static string _currentUserName = MusicAppFront.Views.Windows.MainWindow._currentUserName;
+        
+       
         public static string _currentUserName = "";
 
         private HomePage _homePage;
@@ -36,7 +38,7 @@ namespace MusicAppFront.Views.Windows
         private FavoritesPage _favoritesPage;
         private PlaylistsPage _playlistsPage;
         private MaxFlowPage _maxFlowPage;
-        //private BrowserMusicPlayer _browserMusicPlayer;
+ 
 
         private testPlayer.NativePlayer _nativePlayer;
 
@@ -65,51 +67,49 @@ namespace MusicAppFront.Views.Windows
 
         public void InitPlaylistCommandBindings()
         {
-            // Регистрируем обработчик для добавления трека
+       
             CommandBindings.Add(new CommandBinding(PlaylistCommands.AddTrackToPlaylist, ExecuteAddTrackToPlaylist));
-            // Регистрируем обработчик для редиректа
+   
             CommandBindings.Add(new CommandBinding(PlaylistCommands.RedirectToCreatePlaylist, ExecuteRedirectToCreatePlaylist));
 
             CommandBindings.Add(new CommandBinding(PlaylistCommands.OpenPlaylist, ExecuteOpenPlaylist));
 
-            // Сразу же подгрузим плейлисты один раз при старте
+    
             _ = RefreshUserPlaylistsAsync();
         }
 
-        // 1. Метод подгрузки списка плейлистов (вызывай его также при успешном создании нового плейлиста!)
+
         public async Task RefreshUserPlaylistsAsync()
         {
             try
             {
-                // Ждем, пока подгрузится реальный _currentUserName из токена
-                // Подставил "Alexander", "asd" или пустую строку — на случай дефолтов
+
                 while (string.IsNullOrEmpty(_currentUserName) || _currentUserName == "asd" || _currentUserName == "Alexander")
                 {
                     await Task.Delay(100);
                 }
 
-                // Анонимный объект, в точности повторяющий твою JSON-структуру для тела запроса
+   
                 var requestBody = new { username = _currentUserName };
 
-                // Отправляем POST запрос вместо GET
+         
                 var response = await _client.PostAsJsonAsync("api/music/user-all-playLists", requestBody);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    // Читаем JSON документ, чтобы вытащить названия без создания новых классов-моделей
+       
                     using (var jsonDoc = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonDocument>())
                     {
                         if (jsonDoc != null)
                         {
                             UserPlaylists.Clear();
 
-                            // Если бэк возвращает массив объектов (например: [ { "id": 1, "playlistName": "Для работы" }, ... ])
+                   
                             if (jsonDoc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
                             {
                                 foreach (var item in jsonDoc.RootElement.EnumerateArray())
                                 {
-                                    // Проверяем свойство с именем плейлиста. 
-                                    // Посмотри в свагере, как оно точно называется: "playlistName", "name" или "title"
+             
                                     if (item.TryGetProperty("playlistName", out var nameProp) ||
                                         item.TryGetProperty("name", out nameProp))
                                     {
@@ -121,7 +121,7 @@ namespace MusicAppFront.Views.Windows
                                     }
                                 }
                             }
-                            // Если вдруг бэк возвращает просто массив строк (например: [ "Для работы", "Для уборки" ])
+
                             else if (jsonDoc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
                             {
                                 foreach (var item in jsonDoc.RootElement.EnumerateArray())
@@ -144,28 +144,22 @@ namespace MusicAppFront.Views.Windows
             }
         }
 
-        // 2. Логика клика по кнопке плейлиста в Popup
+
         private async void ExecuteAddTrackToPlaylist(object sender, ExecutedRoutedEventArgs e)
         {
-            //string targetPlaylistName = e.Parameter as string; // Получили имя плейлиста из CommandParameter
 
-            //// Ищем, какой трек сейчас выбран/находится под мышкой в текущем контексте данных.
-            //// e.OriginalSource — это кнопка, на которую нажали. Её DataContext в родителе — это наш трек TrackDto2
-            //var element = e.OriginalSource as FrameworkElement;
-            //var track = element?.DataContext as SearchResultDto.TrackDto2;
 
             e.Handled = true;
 
             if (e.Parameter is object[] values && values.Length >= 2)
             {
-                // 1. Достаем имя плейлиста
+     
                 string targetPlaylistName = values[0] as string;
 
-                // 2. Достаем трек напрямую, без обхода деревьев!
-                // Замени YourTrackClass на свой реальный класс трека (например, TrackDto2)
+
                 var track = values[1] as SearchResultDto.TrackDto2;
 
-                // Проверяем, что поймали
+         
                 MessageBox.Show($"Клик сработал!\nПлейлист: {targetPlaylistName}\nТрек: {track?.Title ?? "НЕ НАЙДЕН"}");
 
                 if (track != null && !string.IsNullOrEmpty(targetPlaylistName))
@@ -200,11 +194,11 @@ namespace MusicAppFront.Views.Windows
             }
         }
 
-        // 3. Логика клика по кнопке "+ Создать плейлист" в Popup
+
         private void ExecuteRedirectToCreatePlaylist(object sender, ExecutedRoutedEventArgs e)
         {
             e.Handled = true;
-            // Перенаправляем главную страницу на создание плейлиста
+
             if (MainFrame != null)
             {
                 MainFrame.Navigate(new MusicAppFront.Views.Pages.CreatePlaylist(this));
@@ -215,20 +209,20 @@ namespace MusicAppFront.Views.Windows
         {
             e.Handled = true;
 
-            // В параметр (e.Parameter) прилетает строка с названием плейлиста
+  
             string playlistName = e.Parameter as string;
 
             if (!string.IsNullOrEmpty(playlistName))
             {
                 var fakeAlbum = new SearchResultDto.AlbumDto(
-                    playlistName,                                         // Name
-                    "pack://application:,,,/Resources/default_playlist.png", // ImageUrl
-                    playlistName,                              // Id (с меткой для бэка/фронта)
-                    null,                                                 // Url
-                    null                                                  // Playcount
+                    playlistName,                                       
+                    "pack://application:,,,/Resources/default_playlist.png", 
+                    playlistName,                            
+                    null,                                              
+                    null                                                  
                 );
 
-                MessageBox.Show($"Открываем плейлист: {playlistName}"); // Временная заглушка для проверки
+                MessageBox.Show($"Открываем плейлист: {playlistName}"); 
             }
         }
 
@@ -239,7 +233,10 @@ namespace MusicAppFront.Views.Windows
             Instance = this;
             InitPlaylistCommandBindings();
             _client = new HttpClient();
-            _client.BaseAddress = new Uri("https://localhost:7296/");
+
+            _client.BaseAddress = new Uri(App.Settings.BaseAddress);
+
+
 
             _ = LoadCurrentUserDataAsync();
 
@@ -252,28 +249,29 @@ namespace MusicAppFront.Views.Windows
             _homePage = new HomePage(this, _nativePlayer);
             MainFrame.Navigate(_homePage);
 
-            //_browserMusicPlayer = new BrowserMusicPlayer(this);
-            //_browserMusicPlayer.InitBrowser();
+
 
             LibVLCSharp.Shared.Core.Initialize();
             _nativePlayer._libVlc = new LibVLC();
             _nativePlayer._mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_nativePlayer._libVlc);
 
-            var loadedList = _nativePlayer.GetHistory(); // Твой метод, который читает JSON
+            var loadedList = _nativePlayer.GetHistory();
 
-            // Заполняем коллекцию
+            
             foreach (var track in loadedList)
             {
                 HistoryList.Add(track);
             }
-            //InitializeComponent();
+
 
             _ = Task.Run(async () =>
             {
                 Console.WriteLine("прогрев сервулятора");
                 try
                 {
-                    await _client.GetAsync("http://localhost:8888/");
+     
+                    await _client.GetAsync(App.Settings.DlpServerUrlUnlog1);
+
                     Console.WriteLine("сервулятор прогрет)");
                 }
                 catch { }
@@ -286,10 +284,10 @@ namespace MusicAppFront.Views.Windows
                 {
                     try
                     {
-                        // Небольшая задержка, чтобы VLC гарантированно перешел в состояние Stopped
+           
                         await Task.Delay(50);
 
-                        // Запускаем переключение трека в фоне
+           
 
                         if (isAlbumOpenAndActive) { await _nativePlayer.PlayNextAlbumTrackAsync(GlobalAlbumResults); }
                         else { await _nativePlayer.PlayNextTrackAsync(GlobalResults); }
@@ -307,7 +305,7 @@ namespace MusicAppFront.Views.Windows
             {
                 Dispatcher.InvokeAsync(() =>
                 {
-                    double currentTime = e.Time / 1000.0; // VLC отдаёт миллисекунды
+                    double currentTime = e.Time / 1000.0; 
 
                     if (!_nativePlayer._isDragging && currentTime >= 0 && currentTime <= TimelineSlider.Maximum)
                     {
@@ -324,7 +322,7 @@ namespace MusicAppFront.Views.Windows
         private async void BtnTest_Click(object sender, RoutedEventArgs e)
         {
 
-            await _nativePlayer.test();
+           
 
         }
 
@@ -447,38 +445,34 @@ namespace MusicAppFront.Views.Windows
             var element = e.OriginalSource as FrameworkElement;
             while (element != null)
             {
-                // Проверяем, что это наша карточка
+            
                 if (element is ContentControl cc)
                 {
                     if (cc.Style == (Style)FindResource("PlaylistCardStyle"))
                     {
 
-                        // Достаем данные альбома из DataContext этой карточки
                         if (cc.DataContext is AlbumDto album)
                         {
-                            // Передаем альбом в конструктор страницы
-                            //isAlbumOpen = true;
+                  
                             MainFrame.Navigate(new InfoPlaylistPage(album, this, _nativePlayer));
                         }
                         else if (cc.DataContext is string playlistName)
                         {
-                            // Мапим строку под формат AlbumDto через его конструктор
+                        
                             var fakeAlbum = new SearchResultDto.AlbumDto(
-                                playlistName,                                             // Name
-                                "pack://application:,,,/Resources/default_playlist.png",    // ImageUrl (твоя заглушка)
-                                "local_" + playlistName,                                  // Id с префиксом для бэкенда
-                                null,                                                     // Url
-                                null                                                      // Playcount
+                                playlistName,                                      
+                                "pack://application:,,,/Resources/default_playlist.png",  
+                                "local_" + playlistName,                                 
+                                null,                                                   
+                                null                                                  
                             );
 
-                            // Передаем созданный фейковый альбом в ту же самую страницу!
+                          
                             MainFrame.Navigate(new InfoPlaylistPage(fakeAlbum, this, _nativePlayer));
                         }
                         else
                         {
-                            // Если данных нет, просто открываем (как было), 
-                            // но лучше проверить, почему DataContext пустой
-                            //isAlbumOpen = true;
+                      
                             MainFrame.Navigate(new InfoPlaylistPage(null, this, _nativePlayer));
                         }
 
@@ -504,8 +498,7 @@ namespace MusicAppFront.Views.Windows
             {
                 try
                 {
-                    // Делаем запрос. Используем GetFromJsonAsync, он сам десериализует ответ
-                    // Если бэк требует токен, добавим заголовок (как обсуждали раньше)
+                   
                     var results = await _client.GetFromJsonAsync<SearchResultDto>(
                         $"api/music/search?query={Uri.EscapeDataString(SearchBox.Text)}"
                     );
@@ -541,36 +534,35 @@ namespace MusicAppFront.Views.Windows
                         {
                             System.Diagnostics.Debug.WriteLine(":GlobalResults " + res.Title);
                         }
-                        // 1. Проверяем, играет ли что-то в плеере прямо сейчас
+                   
                         var currentPlaying = _nativePlayer?._currentlyPlayingTrack;
                         if (currentPlaying != null && results.Tracks != null)
                         {
                             foreach (var track in results.Tracks)
                             {
-                                // Сверяем название и автора (как в твоем методе клика)
+                         
                                 bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                             && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                                 if (isMatch)
                                 {
-                                    // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                                
                                     track.IsPlaying = _nativePlayer._mediaPlayer.IsPlaying;
-                                    break; // Выходим из цикла
+                                    break; 
                                 }
                             }
                         }
 
-                        // 2. Передаем уже ИЗМЕНЕННЫЕ результаты в конструктор страницы
+                    
                         var searchPage = new SearchPage(results, this, _nativePlayer);
 
-                        // 3. Передаем ссылку на измененный трек внутрь страницы, 
-                        // чтобы кнопка "паузы" знала, кого сбрасывать при следующем клике
+       
                         if (results.Tracks != null)
                         {
                             searchPage._lastPlayedTrack = results.Tracks.FirstOrDefault(t => t.IsPlaying);
                         }
 
-                        // 4. Отправляем готовую страницу во Frame
+             
                         MainFrame.Navigate(searchPage);
                     }
                 }
@@ -604,7 +596,7 @@ namespace MusicAppFront.Views.Windows
 
 
 
-                // Уходим назад (на страницу поиска или хоум)
+     
                 if (MainFrame.CanGoBack)
                 {
                     MainFrame.GoBack();
@@ -635,7 +627,7 @@ namespace MusicAppFront.Views.Windows
 
                 if (response.IsSuccessStatusCode)
                 {
-                    // Читаем JSON "на лету" как документ без привязки к классам
+      
                     using (var jsonDoc = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonDocument>())
                     {
                         if (jsonDoc != null && jsonDoc.RootElement.TryGetProperty("username", out var usernameRoot))

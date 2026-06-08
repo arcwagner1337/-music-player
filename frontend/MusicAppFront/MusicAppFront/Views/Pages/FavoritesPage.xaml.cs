@@ -26,9 +26,7 @@ using TrackDto2 = MusicAppFront.Models.SearchResultDto.TrackDto2;
 
 namespace MusicAppFront.Views.Pages
 {
-    /// <summary>
-    /// Логика взаимодействия для FavoritesPage.xaml
-    /// </summary>
+
     public partial class FavoritesPage : Page
     {
         private HttpClient _client = new HttpClient();
@@ -41,7 +39,10 @@ namespace MusicAppFront.Views.Pages
             _mainWindow = mainwindow;
             _nativePlayer = nativePlayer;
             _client = new HttpClient();
-            _client.BaseAddress = new Uri("https://localhost:7296/"); 
+
+            _client.BaseAddress = new Uri(App.Settings.BaseAddress);
+
+
             InitializeComponent();
             this.DataContext = this;
             
@@ -85,15 +86,15 @@ namespace MusicAppFront.Views.Pages
                 {
                     foreach (var trackk in _mainWindow.GlobalAlbumResults.Tracks)
                     {
-                        // Сверяем название и автора (как в твоем методе клика)
+         
                         bool isMatch = string.Equals(trackk.Title?.Trim(), _nativePlayer._currentlyPlayingTrack.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(trackk.Author?.Trim(), _nativePlayer._currentlyPlayingTrack.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (!isMatch)
                         {
-                            // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                         
                             trackk.IsPlaying = false;
-                            break; // Выходим из цикла
+                            break; 
                         }
                     }
                 }
@@ -104,32 +105,25 @@ namespace MusicAppFront.Views.Pages
 
 
                 _nativePlayer._historyStackAlbum.Clear();
-                _nativePlayer._forwardStackAlbum.Clear();///потом сравнение альбомов надо сделать и очищать только если альбом другой
-            //_nativePlayer._playbackAlbumQueue.Clear();
+                _nativePlayer._forwardStackAlbum.Clear();
+    
             }
 
             var btn = sender as Button;
             var trackData = btn?.DataContext as SearchResultDto.TrackDto2;
 
-            if (trackData == null || btn == null) return; // Защита от NullReference
-            if (_isDataLoading) return; // Защита от спама кликами
+            if (trackData == null || btn == null) return; 
+            if (_isDataLoading) return; 
 
             string artist = trackData.Author;
             string track = trackData.Title;
 
-            // 1. ЛОГИКА ПОВТОРНОГО КЛИКА (Ставим на паузу или снимаем с нее)
+  
             var currentPlaying = _nativePlayer._currentlyPlayingTrack;
 
 
             var currentList = FavoriteTracks;
 
-            //for (int i = 0; i < _mainWindow.GlobalAlbumResults.Tracks.Count; i++)
-            //{
-            //    if (trackData.Title == _mainWindow.GlobalAlbumResults.Tracks[i].Title && trackData.Author == _mainWindow.GlobalAlbumResults.Tracks[i].Author)
-            //    {
-            //        targetIndex = i; break;
-            //    }
-            //}
 
             for (int i = 0; i < currentList.Count; i++)
             {
@@ -139,11 +133,6 @@ namespace MusicAppFront.Views.Pages
                 }
             }
 
-
-            //for (int i = 0; i < targetIndex; i++)
-            //{
-            //    _nativePlayer._historyStackAlbum.Push(FromSearchResult(_mainWindow.GlobalAlbumResults.Tracks[i]));
-            //}
 
             for (int i = 0; i < targetIndex; i++)
             {
@@ -166,7 +155,7 @@ namespace MusicAppFront.Views.Pages
                     _nativePlayer._mediaPlayer.Pause();
                     trackData.IsPlaying = false;
 
-                    // Синхронизируем глобальную кнопку внизу окна
+              
                     _mainWindow.GlobalPlayPauseBtn.Content = "\uE102"; // Иконка Play
                     _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(2, 0, 0, 0);
                 }
@@ -182,20 +171,21 @@ namespace MusicAppFront.Views.Pages
                 return;
             }
 
-            // 2. ЛОГИКА ВКЛЮЧЕНИЯ НОВОГО ТРЕКА
+    
             try
             {
                 _isDataLoading = true;
 
-                // Сбрасываем визуальное состояние старого трека
+         
                 if (_lastPlayedTrack != null) _lastPlayedTrack.IsPlaying = false;
                 if (_lastPlayedButton != null) _lastPlayedButton.IsEnabled = true;
 
                 btn.IsEnabled = false;
                 _mainWindow.BottomTrackTitle.Text = "Поиск ссылки...";
 
-                // Шаг А: Спрашиваем у локального бэкенда YouTube URL
-                string url = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}";
+                string url = $"{App.Settings.BaseAddress}api/music/stream?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}";
+
+
                 string json = await _client.GetStringAsync(url);
                 var data = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json);
 
@@ -207,16 +197,15 @@ namespace MusicAppFront.Views.Pages
                     {
                         Artist = artist,
                         Title = track,
-                        YtUrl = data[0], // Сюда падает YouTube URL из бэкенда
+                        YtUrl = data[0], 
                         Duration = duration,
                         IsResolved = false,
-                        ImageUrl = trackData.ImageUrl // Сохраняем обложку
+                        ImageUrl = trackData.ImageUrl 
                     };
 
                     _mainWindow.BottomTrackTitle.Text = "Резолв аудио...";
 
-                    // Шаг Б: Тяжелый резолв через ваши питоновские yt-dlp прокси-серверы
-                    // Вызываем метод резолва из вашего класса плеера
+      
                     trackToBePlayed.StreamUrl = await _nativePlayer.ResolveAudioUrlAsync(trackToBePlayed.YtUrl);
                     trackToBePlayed.IsResolved = true;
 
@@ -227,10 +216,9 @@ namespace MusicAppFront.Views.Pages
                         return;
                     }
 
-                    // Шаг В: Скармливаем готовую прямую ссылку в VLC
                     await _nativePlayer.PlayAlbumTrack(trackToBePlayed, addToHistory: true, clearForward: true);
 
-                    // Меняем иконки на кнопках на состояние "Играет"
+
                     trackData.IsPlaying = true;
                     btn.IsEnabled = true;
 
@@ -240,9 +228,6 @@ namespace MusicAppFront.Views.Pages
                     _lastPlayedTrack = trackData;
                     _lastPlayedButton = btn;
 
-                    //_nativePlayer._historyStackAlbum.Clear();
-                    //_nativePlayer._forwardStackAlbum.Clear();///потом сравнение альбомов надо сделать и очищать только если альбом другой
-                    //_nativePlayer._playbackAlbumQueue.Clear();
                 }
             }
             catch (Exception ex)
@@ -283,7 +268,7 @@ namespace MusicAppFront.Views.Pages
                     _client.DefaultRequestHeaders.Authorization =
                         new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
                 }
-                // Используй свой статический HttpClient или тот, что настроил ранее
+
                 var tracks = await _client.GetFromJsonAsync<List<FavoriteTrack>>("api/music/listFavorites"); 
 
                 FavoriteTracks.Clear();
@@ -318,8 +303,8 @@ namespace MusicAppFront.Views.Pages
                 Artist = searchTrack.Author,
                 Title = searchTrack.Title,
                 ImageUrl = searchTrack.ImageUrl,
-                YtUrl = null, // Это поле заполнится позже, когда дернешь /api/music/stream
-                Duration = 0, // Или распарси, если есть в DTO
+                YtUrl = null, 
+                Duration = 0, 
                 IsResolved = false
             };
         }

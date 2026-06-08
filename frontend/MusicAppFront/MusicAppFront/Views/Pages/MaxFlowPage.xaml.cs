@@ -15,9 +15,7 @@ using System.Windows.Shapes;
 
 namespace MusicAppFront.Views.Pages
 {
-    /// <summary>
-    /// Логика взаимодействия для MaxFlowPage.xaml
-    /// </summary>
+
     public partial class MaxFlowPage : Page
     {
         public MaxFlowPage()

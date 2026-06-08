@@ -17,9 +17,7 @@ using testPlayer;
 
 namespace MusicAppFront.Views.Pages
 {
-    /// <summary>
-    /// Логика взаимодействия для HomePage.xaml
-    /// </summary>
+
     public partial class HomePage : Page
     {
         private MainWindow _mainWindow;
@@ -46,7 +44,7 @@ namespace MusicAppFront.Views.Pages
             if (string.IsNullOrEmpty(track.StreamUrl))
             {
                 MessageBox.Show("Не удалось получить аудиопоток. Все сервера yt-dlp недоступны.");
-                //btn.IsEnabled = true;
+     
                 return;
             }
 

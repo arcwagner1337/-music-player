@@ -12,7 +12,7 @@ namespace MusicAppFront.Resources
     {
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
-            // Берем массив из двух элементов [ИмяПлейлиста, ОбъектТрека] и отдаем его дальше в C#
+         
             return values.Clone();
         }
 

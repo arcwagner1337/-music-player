@@ -25,7 +25,7 @@ namespace MusicAppFront.Views.Pages
 
     public partial class LoginPage : Page
     {
-        //public static string currentUserName = "";
+       
         private static readonly CookieContainer _cookieContainer = new CookieContainer();
         private static readonly HttpClient _client = new HttpClient(new HttpClientHandler
 
@@ -35,7 +35,10 @@ namespace MusicAppFront.Views.Pages
             UseCookies = true
         })
         {
-            BaseAddress = new Uri("https://localhost:7296/"),
+
+            BaseAddress = new Uri(App.Settings.BaseAddress),
+
+
             Timeout = TimeSpan.FromSeconds(10)
         };
         public LoginPage()
@@ -90,12 +93,9 @@ namespace MusicAppFront.Views.Pages
                     var data = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     if (data.ContainsKey("token"))
                     {
-                        AuthStorage.AuthStorage.SaveToken(data["token"]); // Сохраняем без хардкода путей
+                        AuthStorage.AuthStorage.SaveToken(data["token"]); 
                     }
-                    //System.Diagnostics.Debug.WriteLine("data[\"username\"]:  " + data["username"]);
-                    //currentUserName = data["username"];
 
-                    //var mainWindow = new Windows.MainWindow();
                     mainWindow.Show();
                     Window.GetWindow(this).Close();
                 }

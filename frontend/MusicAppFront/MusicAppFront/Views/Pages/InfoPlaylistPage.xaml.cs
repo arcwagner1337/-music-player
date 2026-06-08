@@ -26,9 +26,7 @@ using static testPlayer.NativePlayer;
 
 namespace MusicAppFront.Views.Pages
 {
-    /// <summary>
-    /// Логика взаимодействия для InfoPlaylistPage.xaml
-    /// </summary>
+
     public partial class InfoPlaylistPage : Page
     {
 
@@ -49,7 +47,11 @@ private bool _isCustomPlaylist = false;
             UseCookies = true
         })
         {
-            BaseAddress = new Uri("https://localhost:7296/"),
+
+            BaseAddress = new Uri(App.Settings.BaseAddress),
+
+
+
             Timeout = TimeSpan.FromSeconds(10)
         };
 
@@ -76,16 +78,7 @@ private bool _isCustomPlaylist = false;
 
             _mainWindow = mainWindow;
             _nativePlayer = player;
-            //if (_nativePlayer != null)
-            //{
-            //    _nativePlayer._currentlyPlayingTrack = null;
-            //}
 
-            //if (_nativePlayer != null)
-            //{
-            //    _nativePlayer._historyStackAlbum.Clear();
-            //    _nativePlayer._forwardStackAlbum.Clear();
-            //}
         }
 
         private Button GetButtonFromContainer(DependencyObject parent)
@@ -115,15 +108,15 @@ private bool _isCustomPlaylist = false;
                 {
                     foreach (var trackk in _mainWindow.GlobalAlbumResults.Tracks)
                     {
-                        // Сверяем название и автора (как в твоем методе клика)
+                      
                         bool isMatch = string.Equals(trackk.Title?.Trim(), _nativePlayer._currentlyPlayingTrack.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(trackk.Author?.Trim(), _nativePlayer._currentlyPlayingTrack.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (!isMatch)
                         {
-                            // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                            
                             trackk.IsPlaying = false;
-                            break; // Выходим из цикла
+                            break; 
                         }
                     }
                 }
@@ -134,20 +127,20 @@ private bool _isCustomPlaylist = false;
 
 
                 _nativePlayer._historyStackAlbum.Clear();
-                _nativePlayer._forwardStackAlbum.Clear();///потом сравнение альбомов надо сделать и очищать только если альбом другой
-            //_nativePlayer._playbackAlbumQueue.Clear();
+                _nativePlayer._forwardStackAlbum.Clear();
+
             }
 
             var btn = sender as Button;
             var trackData = btn?.DataContext as SearchResultDto.TrackDto2;
 
-            if (trackData == null || btn == null) return; // Защита от NullReference
-            if (_isDataLoading) return; // Защита от спама кликами
+            if (trackData == null || btn == null) return; 
+            if (_isDataLoading) return; 
 
             string artist = trackData.Author;
             string track = trackData.Title;
 
-            // 1. ЛОГИКА ПОВТОРНОГО КЛИКА (Ставим на паузу или снимаем с нее)
+    
             var currentPlaying = _nativePlayer._currentlyPlayingTrack;
             for (int i = 0; i < _mainWindow.GlobalAlbumResults.Tracks.Count; i++)
             {
@@ -179,7 +172,7 @@ private bool _isCustomPlaylist = false;
                     _nativePlayer._mediaPlayer.Pause();
                     trackData.IsPlaying = false;
 
-                    // Синхронизируем глобальную кнопку внизу окна
+                
                     _mainWindow.GlobalPlayPauseBtn.Content = "\uE102"; // Иконка Play
                     _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(2, 0, 0, 0);
                 }
@@ -195,20 +188,23 @@ private bool _isCustomPlaylist = false;
                 return;
             }
 
-            // 2. ЛОГИКА ВКЛЮЧЕНИЯ НОВОГО ТРЕКА
+           
             try
             {
                 _isDataLoading = true;
 
-                // Сбрасываем визуальное состояние старого трека
+           
                 if (_lastPlayedTrack != null) _lastPlayedTrack.IsPlaying = false;
                 if (_lastPlayedButton != null) _lastPlayedButton.IsEnabled = true;
 
                 btn.IsEnabled = false;
                 _mainWindow.BottomTrackTitle.Text = "Поиск ссылки...";
 
-                // Шаг А: Спрашиваем у локального бэкенда YouTube URL
-                string url = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}";
+
+                string url = $"{App.Settings.BaseAddress}api/music/stream?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}";
+
+
+
                 string json = await _client.GetStringAsync(url);
                 var data = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json);
 
@@ -220,16 +216,14 @@ private bool _isCustomPlaylist = false;
                     {
                         Artist = artist,
                         Title = track,
-                        YtUrl = data[0], // Сюда падает YouTube URL из бэкенда
+                        YtUrl = data[0], 
                         Duration = duration,
                         IsResolved = false,
-                        ImageUrl = trackData.ImageUrl // Сохраняем обложку
+                        ImageUrl = trackData.ImageUrl 
                     };
 
                     _mainWindow.BottomTrackTitle.Text = "Резолв аудио...";
 
-                    // Шаг Б: Тяжелый резолв через ваши питоновские yt-dlp прокси-серверы
-                    // Вызываем метод резолва из вашего класса плеера
                     trackToBePlayed.StreamUrl = await _nativePlayer.ResolveAudioUrlAsync(trackToBePlayed.YtUrl);
                     trackToBePlayed.IsResolved = true;
 
@@ -240,22 +234,19 @@ private bool _isCustomPlaylist = false;
                         return;
                     }
 
-                    // Шаг В: Скармливаем готовую прямую ссылку в VLC
                     await _nativePlayer.PlayAlbumTrack(trackToBePlayed, addToHistory: true, clearForward: true);
 
-                    // Меняем иконки на кнопках на состояние "Играет"
+                    
                     trackData.IsPlaying = true;
                     btn.IsEnabled = true;
 
-                    _mainWindow.GlobalPlayPauseBtn.Content = "\uE103"; // Пауза
+                    _mainWindow.GlobalPlayPauseBtn.Content = "\uE103"; 
                     _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(0);
 
                     _lastPlayedTrack = trackData;
                     _lastPlayedButton = btn;
 
-                    //_nativePlayer._historyStackAlbum.Clear();
-                    //_nativePlayer._forwardStackAlbum.Clear();///потом сравнение альбомов надо сделать и очищать только если альбом другой
-                    //_nativePlayer._playbackAlbumQueue.Clear();
+
                 }
             }
             catch (Exception ex)
@@ -274,107 +265,16 @@ private bool _isCustomPlaylist = false;
 
 
 
-        //public async void TrackRow_Click(object sender, RoutedEventArgs e)
-        //{
-
-        //    if (_isDataLoading) return;
-        //    var btn = sender as Button;
-        //    var track = btn?.DataContext as TrackDto2;
-
-        //    if (btn == null || track == null) return;
-
-        //    if (_lastPlayedTrack == track)
-        //    {
-        //        if (track.IsPlaying) { GlobalPlayer.Pause(); track.IsPlaying = false; }
-        //        else { GlobalPlayer.Resume(); track.IsPlaying = true; }
-        //        return;
-        //    }
-
-        //    await StartPlayTrack(track, btn);
-        //}
-
-        //public async Task PlayNextTrack()
-        //{
-        //    // Достаем список треков из твоего ItemsControl / ListBox
-        //    var tracks = TracksList.ItemsSource as List<TrackDto2>;
-        //    if (tracks == null || tracks.Count == 0) return;
-
-        //    // Находим индекс трека, который сейчас играет в глобальном плеере
-        //    int currentIndex = tracks.FindIndex(t => t.Title == GlobalPlayer.CurrentTrack?.Title && t.Author == GlobalPlayer.CurrentTrack?.Author);
-
-        //    if (currentIndex != -1 && currentIndex < tracks.Count - 1)
-        //    {
-        //        var nextTrack = tracks[currentIndex + 1];
-        //        await StartPlayTrack(nextTrack, null);
-        //    }
-        //}
-
-        //public async Task PlayPrevTrack()
-        //{
-        //    var tracks = TracksList.ItemsSource as List<TrackDto2>;
-        //    if (tracks == null || tracks.Count == 0) return;
-
-        //    int currentIndex = tracks.FindIndex(t => t.Title == GlobalPlayer.CurrentTrack?.Title && t.Author == GlobalPlayer.CurrentTrack?.Author);
-
-        //    // Если прошло больше 3 секунд трека, то "Назад" просто перематывает в начало
-        //    // Если начало трека — прыгаем на предыдущий
-        //    if (currentIndex > 0)
-        //    {
-        //        var prevTrack = tracks[currentIndex - 1];
-        //        await StartPlayTrack(prevTrack, null);
-        //    }
-        //    else
-        //    {
-        //        GlobalPlayer.Seek(0);
-        //    }
-        //}
-
-
-        //private async Task StartPlayTrack(SearchResultDto.TrackDto2 track, Button btn)
-        //{
-        //    try
-        //    {
-        //        if (btn != null) btn.IsEnabled = false;
-        //        _isDataLoading = true;
-
-        //        if (_lastPlayedTrack != null) _lastPlayedTrack.IsPlaying = false;
-
-        //        string streamUrl = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(track.Author)}&track={Uri.EscapeDataString(track.Title)}";
-
-        //        GlobalPlayer.CurrentTrack = track;
-
-        //        var tcs = new TaskCompletionSource<bool>();
-        //        Action handler = null;
-        //        handler = () =>
-        //        {
-        //            tcs.TrySetResult(true);
-        //            GlobalPlayer.OnPlayingStarted -= handler; // Отписываемся, чтобы не копились
-        //        };
-        //        GlobalPlayer.OnPlayingStarted += handler;
-
-        //        GlobalPlayer.Play(streamUrl);
-        //        await Task.WhenAny(tcs.Task, Task.Delay(10000));
-
-        //        track.IsPlaying = true;
-        //        _lastPlayedTrack = track;
-        //    }
-        //    finally
-        //    {
-        //        if (btn != null) btn.IsEnabled = true;
-        //        _isDataLoading = false;
-        //    }
-        //}
-
         public class PlaylistTrackDto
         {
             [JsonPropertyName("id")]
             public int Id { get; set; }
 
-            // Мапим "title" из JSON в свойство
+           
             [JsonPropertyName("title")]
             public string TrackTitle { get; set; }
 
-            // Мапим "artist" из JSON в свойство
+          
             [JsonPropertyName("artist")]
             public string TrackArtist { get; set; }
 
@@ -386,11 +286,11 @@ private bool _isCustomPlaylist = false;
             try
             {
 
-                //var response = await _client.GetFromJsonAsync<List<SearchResultDto.TrackDto2>>($"https://localhost:7296/api/music/album/{albumId}");
+                
 
                 List<SearchResultDto.TrackDto2> response = null;
 
-                // Проверяем, это наш локальный плейлист или обычный онлайн-альбом
+                
                 if (albumId != null && albumId.StartsWith("local_"))
                 {
                     string playlistName = albumId.Replace("local_", "");
@@ -401,25 +301,29 @@ private bool _isCustomPlaylist = false;
                         playlistName = playlistName
                     };
 
-                    var httpResponse = await _client.PostAsJsonAsync("https://localhost:7296/api/music/playlist-tracks", requestBody);
+
+                    var httpResponse = await _client.PostAsJsonAsync($"{App.Settings.BaseAddress}api/music/playlist-tracks", requestBody);
+
+
+
 
                     string rawJson = await httpResponse.Content.ReadAsStringAsync();
                     System.Diagnostics.Debug.WriteLine(rawJson);
 
                     if (httpResponse.IsSuccessStatusCode)
                     {
-                        // 1. Читаем данные в промежуточный список (в твою новую ДТОшку)
+                       
                         var rawTracks = await httpResponse.Content.ReadFromJsonAsync<List<PlaylistTrackDto>>();
 
                         if (rawTracks != null)
                         {
-                            // 2. Мапим их на лету в TrackDto2, который ждет XAML и плеер
+                           
                             response = rawTracks.Select(t => new SearchResultDto.TrackDto2
                             {
                                 Title = t.TrackTitle ?? "Без названия",
                                 Author = t.TrackArtist ?? "Неизвестный исполнитель",
                                 ImageUrl = t.ImageUrl ?? "pack://application:,,,/Resources/default_playlist.png",
-                                Url = null,         // Если ссылки на стрим в бд нет, оставляем null
+                                Url = null,         
                                 CleanTitle = t.TrackTitle ?? "Без названия"
                             }).ToList();
                         }
@@ -432,8 +336,11 @@ private bool _isCustomPlaylist = false;
                 }
                 else
                 {
-                    // Старый добрый GET-запрос для обычных онлайн-альбомов
-                    response = await _client.GetFromJsonAsync<List<SearchResultDto.TrackDto2>>($"https://localhost:7296/api/music/album/{albumId}");
+
+                    response = await _client.GetFromJsonAsync<List<SearchResultDto.TrackDto2>>($"{App.Settings.BaseAddress}api/music/album/{albumId}");
+
+
+
                 }
 
 
@@ -463,8 +370,8 @@ private bool _isCustomPlaylist = false;
                 Artist = searchTrack.Author,
                 Title = searchTrack.Title,
                 ImageUrl = searchTrack.ImageUrl,
-                YtUrl = null, // Это поле заполнится позже, когда дернешь /api/music/stream
-                Duration = 0, // Или распарси, если есть в DTO
+                YtUrl = null, 
+                Duration = 0, 
                 IsResolved = false
             };
         }

@@ -11,16 +11,16 @@ namespace MusicAppFront.AuthStorage
     {
         private static readonly string StoragePath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MusicAppFront", // Название твоего проекта
+            "MusicAppFront",
             "auth.bin"
         );
 
         public static void SaveToken(string token)
         {
-            // Создаем папку, если её нет
+       
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(StoragePath));
 
-            // Пишем токен в файл
+
             File.WriteAllText(StoragePath, token);
         }
 

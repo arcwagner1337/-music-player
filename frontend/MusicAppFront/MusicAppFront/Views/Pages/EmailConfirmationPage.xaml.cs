@@ -19,21 +19,21 @@ using System.Windows.Threading;
 
 namespace MusicAppFront.Views.Pages
 {
-    /// <summary>
-    /// Логика взаимодействия для EmailConfirmationPage.xaml
-    /// </summary>
-    /// 
+
 
     public partial class EmailConfirmationPage : Page
     {
         private readonly string _userEmail;
-        private static readonly HttpClient _client = new HttpClient { BaseAddress = new Uri("https://localhost:7296/"), Timeout = TimeSpan.FromSeconds(10) };
+
+        private static readonly HttpClient _client = new HttpClient { BaseAddress = new Uri(App.Settings.BaseAddress), Timeout = TimeSpan.FromSeconds(10) };
+
+
         private DispatcherTimer _timer;
         private int _timeLeft = 59;
         public EmailConfirmationPage(string email)
         {
             InitializeComponent();
-            _userEmail = email; // Сохраняем, чтобы отправить на бэк вместе с кодом
+            _userEmail = email; 
             StartTimer();
         }
         private void StartTimer()
@@ -67,7 +67,7 @@ namespace MusicAppFront.Views.Pages
 
         private async void ResendButton_Click(object sender, RoutedEventArgs e)
         {
-            //тут потом будет вызов метода бэка для повторной отправки
+            
             StartLoading(true);
             try
             {
@@ -88,7 +88,7 @@ namespace MusicAppFront.Views.Pages
 
         private async void ConfirmCode_Click(object sender, RoutedEventArgs e)
         {
-            // тут потом будет проверка кода через api
+            
             ConfirmErrorTextBlock.Visibility = Visibility.Collapsed;
 
             if (string.IsNullOrWhiteSpace(CodeInput.Text))
@@ -102,12 +102,12 @@ namespace MusicAppFront.Views.Pages
             {
                 var verifyData = new { email = _userEmail, code = CodeInput.Text };
 
-                // Стучимся на твой эндпоинт [HttpPost("confirm")]
+              
                 var response = await _client.PostAsJsonAsync("api/register/confirm", verifyData);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    // Успех! Переходим в главное окно
+                    
 
                     var data = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     if (data.ContainsKey("token"))
@@ -121,7 +121,7 @@ namespace MusicAppFront.Views.Pages
                 }
                 else
                 {
-                    // Читаем ошибку с бэка (например, Invalid or expired code)
+                    
                     var errorData = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     string errorMsg = errorData?.GetValueOrDefault("error") ?? "Неверный код";
                     ShowConfirmError(GetFriendlyConfirmError(errorMsg));

@@ -15,9 +15,7 @@ using System.Windows.Shapes;
 
 namespace MusicAppFront.Views.Windows
 {
-    /// <summary>
-    /// Логика взаимодействия для LoginWindow.xaml
-    /// </summary>
+
     public partial class LoginWindow : Window
     {
         public LoginWindow()
@@ -28,16 +26,16 @@ namespace MusicAppFront.Views.Windows
 
             if (!string.IsNullOrEmpty(token))
             {
-                // Если токен есть, сразу открываем главное окно
+          
                 var mainWindow = new MainWindow();
                 mainWindow.Show();
 
-                // Закрываем это окно логина, чтобы оно не висело в памяти
+        
                 this.Close();
             }
             else
             {
-                // Токена нет — грузим страницу логина во фрейм
+                
                 AuthFrame.Navigate(new LoginPage());
             }
             

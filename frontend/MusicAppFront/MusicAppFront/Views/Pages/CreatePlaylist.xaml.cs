@@ -18,15 +18,16 @@ using System.Windows.Shapes;
 
 namespace MusicAppFront.Views.Pages
 {
-    /// <summary>
-    /// Логика взаимодействия для CreatePlaylist.xaml
-    /// </summary>
+
     public partial class CreatePlaylist : Page
     {
         private readonly MainWindow _mainWindow;
         private static readonly HttpClient _httpClient = new HttpClient
         {
-            BaseAddress = new Uri("https://localhost:7296/")
+
+            BaseAddress = new Uri(App.Settings.BaseAddress)
+
+
         };
         public CreatePlaylist(MainWindow mainWindow)
         {
@@ -44,7 +45,7 @@ namespace MusicAppFront.Views.Pages
         {
             string playlistName = PlaylistNameTextBox.Text.Trim();
 
-            // Простая валидация на фронте
+ 
             if (string.IsNullOrEmpty(playlistName))
             {
                 MessageBox.Show("Название плейлиста не может быть пустым!", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -56,7 +57,7 @@ namespace MusicAppFront.Views.Pages
 
             System.Diagnostics.Debug.WriteLine("currentUsername  " + currentUsername);
 
-            // Анонимный объект, который преобразуется в CreatePlaylistDto на бэке
+
             var requestBody = new
             {
                 PlaylistName = playlistName,
@@ -65,14 +66,14 @@ namespace MusicAppFront.Views.Pages
 
             try
             {
-                // Отправляем JSON в body запроса
+            
                 var response = await _httpClient.PostAsJsonAsync("api/music/create-playlist", requestBody);
 
                 if (response.IsSuccessStatusCode)
                 {
                     System.Diagnostics.Debug.WriteLine($"Плейлист \"{playlistName}\" успешно создан!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
 
-                    // Перенаправляем пользователя обратно к списку плейлистов
+             
                     if (this.NavigationService != null && this.NavigationService.CanGoBack)
                     {
                         this.NavigationService.GoBack();
@@ -80,8 +81,7 @@ namespace MusicAppFront.Views.Pages
                 }
                 else
                 {
-                    // Если бэк вернул BadRequest (например, если плейлист с таким именем уже есть)
-                    // Читаем ошибку из ответа бэка
+  
                     var errorResult = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     string message = errorResult != null && errorResult.ContainsKey("message")
                         ? errorResult["message"]
@@ -92,7 +92,7 @@ namespace MusicAppFront.Views.Pages
             }
             catch (Exception ex)
             {
-                // На случай если забыл запустить бэкенд или отвалилась сеть
+   
                 MessageBox.Show($"Ошибка подключения к серверу: {ex.Message}", "Ошибка сети", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

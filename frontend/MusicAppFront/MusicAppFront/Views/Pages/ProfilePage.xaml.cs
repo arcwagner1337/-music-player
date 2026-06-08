@@ -20,9 +20,7 @@ using System.Windows.Shapes;
 
 namespace MusicAppFront.Views.Pages
 {
-    /// <summary>
-    /// Логика взаимодействия для ProfilePage.xaml
-    /// </summary>
+
     public partial class ProfilePage : Page
     {
         private static readonly CookieContainer _cookieContainer = new CookieContainer();
@@ -34,7 +32,10 @@ namespace MusicAppFront.Views.Pages
             UseCookies = true
         })
         {
-            BaseAddress = new Uri("https://localhost:7296/"),
+
+            BaseAddress = new Uri(App.Settings.BaseAddress),
+
+
             Timeout = TimeSpan.FromSeconds(10)
         };
         public ProfilePage()
@@ -46,20 +47,19 @@ namespace MusicAppFront.Views.Pages
         {
             try
             {
-                // 1. Сначала уведомляем сервер (опционально, но правильно)
-                // Мы просто шлем пустой POST, сервер пришлет команду на удаление куки
+
                 await _client.PostAsync("api/logout", null);
             }
-            catch { /* Если сервер недоступен, просто игнорим и чистим локально */ }
+            catch {  }
 
-            // 2. Чистим локальное хранилище (удаляем token.txt)
+            
             AuthStorage.AuthStorage.Clear();
 
-            // 3. Переходим на окно логина
+     
             var loginWin = new Windows.LoginWindow();
             loginWin.Show();
 
-            // 4. Закрываем текущее основное окно
+     
             Window.GetWindow(this)?.Close();
         }
 
@@ -70,7 +70,7 @@ namespace MusicAppFront.Views.Pages
                 string token = AuthStorage.AuthStorage.GetToken();
                 if (string.IsNullOrEmpty(token)) return;
 
-                // Создаем запрос вручную, чтобы подкинуть заголовок
+          
                 var request = new HttpRequestMessage(HttpMethod.Get, "api/user/me");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -81,7 +81,7 @@ namespace MusicAppFront.Views.Pages
                     var user = await response.Content.ReadFromJsonAsync<User>();
                     if (user != null)
                     {
-                        // Ставим данные в XAML элементы (убедись, что дал им x:Name в ксамле)
+                        
                         UserName.Text = user.Username;
                         UserNameSmall.Text = user.Username;
                         UserEmail.Text = user.Email;
@@ -91,7 +91,7 @@ namespace MusicAppFront.Views.Pages
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
-                    // Если токен "протух" — разлогиниваем
+                    
                     Logout_Click(null, null);
                 }
             }

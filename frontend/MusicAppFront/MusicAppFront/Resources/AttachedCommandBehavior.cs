@@ -21,22 +21,18 @@ namespace MusicAppFront.Resources
         {
             if (d is UIElement element && (bool)e.NewValue)
             {
-                // Используем специальную перегрузку AddHandler, которая умеет перехватывать 
-                // даже те события, которые сама кнопка помечает как Handled.
-                // Мы ловим именно событие ClickEvent у ButtonBase.
+
                 element.AddHandler(
                     ButtonBase.ClickEvent,
                     new RoutedEventHandler(OnElementClick),
-                    handledEventsToo: true // Вот этот флаг — магия WPF
+                    handledEventsToo: true 
                 );
             }
         }
 
         private static void OnElementClick(object sender, RoutedEventArgs e)
         {
-            // Говорим WPF: "Всё, дальше этого элемента событие клика не летит!"
-            // Кнопка сама уже отработала, IsChecked поменялся, попап открылся.
-            // А родитель-трек теперь этот клик тупо не услышит.
+
             e.Handled = true;
         }
     }

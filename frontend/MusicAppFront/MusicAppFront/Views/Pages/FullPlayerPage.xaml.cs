@@ -34,7 +34,7 @@ namespace MusicAppFront.Views.Pages
 
         public bool _isDraggingBigSlider = false;
 
-        // Конструктор теперь принимает готовые объекты снаружи
+
         public FullPlayerPage(MainWindow mainWindow, testPlayer.NativePlayer player, SearchResultDto GlobalResults, SearchResultDto GlobalAlbumResults)
         {
             InitializeComponent();
@@ -53,23 +53,23 @@ namespace MusicAppFront.Views.Pages
 
                 _nativePlayer._mediaPlayer.TimeChanged += (s, e) =>
                 {
-                    // Используем легковесный BeginInvoke с фоновым приоритетом, чтобы слайдер не лагал
+               
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        double currentTime = e.Time / 1000.0; // VLC отдаёт миллисекунды
+                        double currentTime = e.Time / 1000.0; 
 
                         if (_mainWindow != null)
                         {
-                            // ЖЕСТКАЯ СИНХРОНИЗАЦИЯ: копируем точный Максимум из мелкого слайдера при каждом тике
+                         
                             BIG_Slider.Maximum = _mainWindow.TimelineSlider.Maximum;
                         }
 
-                        // Проверяем локальный флаг драггинга большого слайдера
+                  
                         if (!_isDraggingBigSlider && currentTime >= 0)
                         {
                             BIG_Slider.Value = currentTime;
 
-                            // Заливаем текст, отформатированный через твой метод FormatTime
+    
                             BIG_CurrentTime.Text = $"{_nativePlayer.FormatTime(BIG_Slider.Value)}";
                             BIG_TotalTime.Text = $"{_nativePlayer.FormatTime(BIG_Slider.Maximum)}";
                         }
@@ -81,8 +81,7 @@ namespace MusicAppFront.Views.Pages
 
         public void UpdateUiFromCurrentTrack()
         {
-            // Проверяем, что плеер и трек вообще существуют
-            //if (_nativePlayer == null || _nativePlayer._currentlyPlayingTrack == null) return;
+
             if (_nativePlayer == null) return;
 
             if (_nativePlayer._currentlyPlayingTrack == null)
@@ -96,11 +95,10 @@ namespace MusicAppFront.Views.Pages
 
                 var track = _nativePlayer._currentlyPlayingTrack;
 
-                // В лоб заполняем все элементы интерфейса большого плеера
                 BIG_TrackTitle.Text = track.Title;
                 BIG_Author.Text = track.Artist;
 
-                // Если внизу играет — ставим две палочки (паузу), иначе плей
+
                 if (_nativePlayer._mediaPlayer.IsPlaying)
                 {
                     BIG_GlobalPlayPauseBtn.Content = "\uE103";

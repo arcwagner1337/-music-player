@@ -21,9 +21,7 @@ using MusicAppFront.AuthStorage;
 
 namespace MusicAppFront.Views.Pages
 {
-    /// <summary>
-    /// Логика взаимодействия для RegisterPage.xaml
-    /// </summary>
+
     public partial class RegisterPage : Page
     {
         private static readonly CookieContainer _cookieContainer = new CookieContainer();
@@ -33,7 +31,10 @@ namespace MusicAppFront.Views.Pages
             UseCookies = true
         })
         {
-            BaseAddress = new Uri("https://localhost:7296/"),
+  
+            BaseAddress = new Uri(App.Settings.BaseAddress),
+
+
             Timeout = TimeSpan.FromSeconds(10)
         };
         public RegisterPage()
@@ -43,7 +44,7 @@ namespace MusicAppFront.Views.Pages
 
         private async void CreateAccount_Click(object sender, RoutedEventArgs e)
         {
-            //тут потом будет логика отправки данных на бэкенд
+      
 
             RegErrorTextBlock.Visibility = Visibility.Collapsed;
 
@@ -68,16 +69,16 @@ namespace MusicAppFront.Views.Pages
                 var regData = new
                 {
                     Username = RegUsernameInput.Text,
-                    Email = RegEmailInput.Text, // Убедись, что на бэке поле так же зовется
+                    Email = RegEmailInput.Text, 
                     Password = RegPasswordInput.Password
                 };
 
-                // Шлем POST на твой контроллер регистрации (обычно /api/register)
+       
                 var response = await _client.PostAsJsonAsync("api/register/request", regData);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    // Если всё ок — идем на подтверждение почты
+             
                     this.NavigationService?.Navigate(new EmailConfirmationPage(regData.Email));
                 }
                 else

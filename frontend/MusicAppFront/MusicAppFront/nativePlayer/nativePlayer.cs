@@ -1,11 +1,12 @@
 ﻿using LibVLCSharp.Shared;
 using Microsoft.Web.WebView2;
+using MusicAppFront;
 using MusicAppFront.Models;
 using MusicAppFront.Views.Pages;
 using MusicAppFront.Views.Windows;
+using NAudio.Wave;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-
 //using NAudio.Wave;
 using System;
 using System.Collections;
@@ -14,6 +15,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
@@ -39,10 +41,7 @@ using Path = System.IO.Path;
 
 namespace testPlayer
 {
-    /// <summary>
-    /// Логика взаимодействия для MainWindow.xaml
-    /// </summary>
-    /// 
+
 
     public class NativePlayer
     {
@@ -57,7 +56,12 @@ namespace testPlayer
         private System.Windows.Threading.DispatcherTimer _syncTimer;
         private List<string> _globalHistory = new List<string>();
         public LibVLCSharp.Shared.LibVLC _libVlc;
+
+
         public LibVLCSharp.Shared.MediaPlayer _mediaPlayer;
+
+
+
         private string _currentArtist = "";
         private string _currentTrack = "";
         public MusicAppFront.Views.Pages.FullPlayerPage FullPlayerPage { get; set; }
@@ -66,13 +70,13 @@ namespace testPlayer
 
 
 
-        //private Queue<TrackWithStreamDto> _playbackQueue = new Queue<TrackWithStreamDto>();
+    
         private ConcurrentQueue<TrackWithStreamDto> _playbackQueue = new ConcurrentQueue<TrackWithStreamDto>();
         public ConcurrentQueue<TrackWithStreamDto> _playbackAlbumQueue = new ConcurrentQueue<TrackWithStreamDto>();
 
 
 
-        // Стек истории (те, что уже проиграли, для кнопки Prev)
+
         private Stack<TrackWithStreamDto> _historyStack = new Stack<TrackWithStreamDto>();
         private Stack<TrackWithStreamDto> _forwardStack = new Stack<TrackWithStreamDto>();
 
@@ -80,13 +84,13 @@ namespace testPlayer
         public Stack<TrackWithStreamDto> _historyStackAlbum = new Stack<TrackWithStreamDto>();
         public Stack<TrackWithStreamDto> _forwardStackAlbum = new Stack<TrackWithStreamDto>();
 
-        // То, что играет прямо сейчас
+
         public TrackWithStreamDto _currentlyPlayingTrack;
 
-        // Токен для отмены фоновых задач (чтобы старые запросы не забивали канал)
+  
         private CancellationTokenSource _preloadCts;
 
-        // DTO-контейнер, объединяющий инфо о треке и его прямую ссылку
+     
         public class TrackWithStreamDto
         {
             public string Title { get; set; }
@@ -97,7 +101,7 @@ namespace testPlayer
             public string YtUrl { get; set; }
             public bool IsResolved { get; set; }
             public bool IsResolvingProcess { get; set; }
-            
+
         }
 
         public class TrackDto2
@@ -110,7 +114,7 @@ namespace testPlayer
             public string CleanArtist { get; set; }
             public string CleanTitle { get; set; }
 
-            // Пустой конструктор обязателен для работы сериализатора
+       
             public TrackDto2() { }
 
             public TrackDto2(string title, string artist, string url, string cleanArtist, string cleanTitle, string coverImageUrl)
@@ -128,17 +132,24 @@ namespace testPlayer
         private Random _random = new Random();
 
 
-        //        private string[] _resolveServers = {
-        //    "http://localhost:8888",//незалогинен
-        //    "http://localhost:8889",//незалогинен
-        //    "http://localhost:8890",//залогинен
-        //    "http://localhost:8891" //залогинен
-        //};
-        //        private int _serverIndex = 0;
 
 
-        private readonly string[] _fastServers = { "http://127.0.0.1:8888", "http://127.0.0.1:8889" }; // незалогиненные
-        private readonly string[] _fallbackServers = { "http://localhost:8890", "http://localhost:8891" }; // залогиненные
+
+        
+
+        private readonly string[] _fastServers =
+        {
+            App.Settings.DlpServerUrlUnlog1,
+            App.Settings.DlpServerUrlUnlog2
+        };
+
+      
+
+        private readonly string[] _fallbackServers =
+            {
+                App.Settings.DlpServerUrlLog1,
+                App.Settings.DlpServerUrlLog2
+            };
 
         private int _fastIndex = 0;
         private int _fallbackIndex = 0;
@@ -155,20 +166,32 @@ namespace testPlayer
         {
             _mainWindow = mainWindow;
 
+            if (_libVlc != null)
+            {
+                _libVlc.Log += (sender, e) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"[VLC Native] {e.Message}");
+                };
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[VLC null]...");
+            }
+
         }
 
         private string GetServerForAttempt(int attempt)
         {
             lock (_serverLock)
             {
-                // Первые попытки (по количеству быстрых серверов) опрашивают быстрые
+         
                 if (attempt < _fastServers.Length)
                 {
                     var server = _fastServers[_fastIndex % _fastServers.Length];
                     _fastIndex++;
                     return server;
                 }
-                else // Если быстрые кончились/упали, переключаемся на залогиненные
+                else 
                 {
                     var server = _fallbackServers[_fallbackIndex % _fallbackServers.Length];
                     _fallbackIndex++;
@@ -177,132 +200,18 @@ namespace testPlayer
             }
         }
 
-        //private string GetNextServer()
-        //{
-        //    lock (_serverLock)
-        //    {
-        //        var server = _resolveServers[_serverIndex % _resolveServers.Length];
-        //        _serverIndex++;
-        //        return server;
-        //    }
-        //}
-
-        //private async Task PreloadRecommendationsAsync(string artist, string track, CancellationToken token)
-        //{
-        //    string currentArtist = artist;
-        //    string currentTrack = track;
-
-        //    while (!token.IsCancellationRequested && _playbackQueue.Count < 30)
-        //    {
-        //        try
-        //        {
-        //            string currentTrackId = $"{currentArtist.ToLower()} - {currentTrack.ToLower()}";
-
-        //            if (!_globalHistory.Contains(currentTrackId)) _globalHistory.Add(currentTrackId);
-
-        //            var body = new
-        //            {
-        //                artist = currentArtist,
-        //                track = currentTrack,
-        //                exclude = _globalHistory.Skip(Math.Max(0, _globalHistory.Count - 40)).ToList()
-        //            };
-        //            var bodyStr = Newtonsoft.Json.JsonConvert.SerializeObject(body);
-        //            System.Diagnostics.Debug.WriteLine($"[preload] отправляем: {bodyStr.Substring(0, Math.Min(200, bodyStr.Length))}");
-        //            System.Diagnostics.Debug.WriteLine($"[preload] exclude count: {_globalHistory.Count}, отправляем exclude: {body.exclude.Count}");
-        //            string json = string.Empty;
-        //            var content = new StringContent(
-        //                Newtonsoft.Json.JsonConvert.SerializeObject(body),
-        //                System.Text.Encoding.UTF8,
-        //                "application/json"
-        //            );
-
-        //            using (var response = await _client.PostAsync(
-        //                "https://localhost:7296/api/music/GetNextRecommended", content, token))
-        //            {
-        //                response.EnsureSuccessStatusCode();
-        //                json = await response.Content.ReadAsStringAsync();
-        //            }
-
-        //            System.Diagnostics.Debug.WriteLine("json^  " + json);
-
-        //            if (token.IsCancellationRequested) break;
-
-        //            var data = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(json);
-        //            if (data == null) break;
-        //            //System.Diagnostics.Debug.WriteLine("data^  " + (string)data.ToString()); 
-        //            double.TryParse((string)data.duration, System.Globalization.NumberStyles.Any,
-        //                System.Globalization.CultureInfo.InvariantCulture, out double dur);
-
-        //            var nextTrack = new TrackWithStreamDto
-        //            {
-        //                Artist = data.artist,
-        //                Title = data.title,
-        //                ImageUrl = (string)data.imageUrl,
-        //                YtUrl = (string)data.streamUrl,
-        //                Duration = dur,
-        //                IsResolved = false
-        //            };
-
-        //            _playbackQueue.Enqueue(nextTrack);
-        //            System.Diagnostics.Debug.WriteLine($"[preload] {nextTrack.Artist} - {nextTrack.Title}, очередь: {_playbackQueue.Count}");
-        //            //System.Diagnostics.Debug.WriteLine("img url  " + (string)data.ImageUrl.ToString());
-        //            System.Diagnostics.Debug.WriteLine("img2 url  " + nextTrack.ImageUrl);
-        //            System.Diagnostics.Debug.WriteLine("just url  " + nextTrack.YtUrl);
-
-
-        //            // резолвим фоном, цикл не ждёт
-        //            //_ = Task.Run(async () => {
-        //            //    nextTrack.StreamUrl = await ResolveAudioUrlAsync(nextTrack.YtUrl);
-        //            //    nextTrack.IsResolved = true;
-        //            //    Console.WriteLine($"[preload] резолв готов: {nextTrack.Artist} - {nextTrack.Title}");
-        //            //    Console.WriteLine(nextTrack.StreamUrl);
-        //            //});
-
-        //            _ = Task.Run(async () =>
-        //            {
-        //                await _ResolveSemaphore.WaitAsync();
-        //                try
-        //                {
-        //                    await Task.Delay(_random.Next(1000, 3000));
-        //                    nextTrack.StreamUrl = await ResolveAudioUrlAsync(nextTrack.YtUrl);
-        //                    nextTrack.IsResolved = true;
-        //                    System.Diagnostics.Debug.WriteLine($"[preload] резолв готов: {nextTrack.Artist} - {nextTrack.Title}");
-
-
-
-        //                }
-        //                finally
-        //                {
-        //                    _ResolveSemaphore.Release();
-        //                }
-        //            });
-
-
-        //            currentArtist = nextTrack.Artist;
-        //            currentTrack = nextTrack.Title;
-        //        }
-        //        catch (OperationCanceledException) { break; }
-        //        catch (Exception ex)
-        //        {
-        //            System.Diagnostics.Debug.WriteLine($"[preload] ошибка: {ex.Message}");
-
-
-        //            await Task.Delay(1000, token);
-        //        }
-        //    }
-        //}
         public async Task AddToHistory(TrackWithStreamDto newTrack)
         {
             List<TrackWithStreamDto> history = new List<TrackWithStreamDto>();
 
             try
             {
-                //    if (File.Exists(HistoryFile))
-                //{
+                
+                
                 string json = await File.ReadAllTextAsync(HistoryFile);
-                // Десериализация в Newtonsoft
+               
                 history = JsonConvert.DeserializeObject<List<TrackWithStreamDto>>(json) ?? new List<TrackWithStreamDto>();
-                //}
+           
 
                 history.RemoveAll(t => t.YtUrl == newTrack.YtUrl);
                 history.Insert(0, newTrack);
@@ -312,10 +221,10 @@ namespace testPlayer
                     history = history.Take(MaxTracks).ToList();
                 }
 
-                // Сериализация в Newtonsoft с красивым форматированием
+             
                 string newJson = JsonConvert.SerializeObject(history, Formatting.Indented);
 
-                // Запись в файл асинхронно
+             
                 await File.WriteAllTextAsync(HistoryFile, newJson);
                 System.Diagnostics.Debug.WriteLine($"История сохранена в: {HistoryFile}");
             }
@@ -354,11 +263,10 @@ namespace testPlayer
                     string currentTrackId = $"{currentArtist.ToLower()} - {currentTrack.ToLower()}";
                     if (!_globalHistory.Contains(currentTrackId)) _globalHistory.Add(currentTrackId);
 
-                    // 1. Собираем историю прослушивания (последние 40 треков)
+          
                     var excludeList = _globalHistory.Skip(Math.Max(0, _globalHistory.Count - 40)).ToList();
 
-                    // 2. ПОДМЕШИВАЕМ РЕЗУЛЬТАТЫ ПОИСКА ИЗ UI В МАССИВ EXCLUDE ДЛЯ СЕРВЕРА
-                    // Бэк использует их как фолбэк, если Last.fm выдаст 404 на условный "rodle"
+         
                     if (_mainWindow?.GlobalAlbumResults?.Tracks != null)
                     {
                         foreach (var searchTrack in _mainWindow.GlobalAlbumResults.Tracks)
@@ -375,7 +283,7 @@ namespace testPlayer
                     {
                         artist = currentArtist,
                         track = currentTrack,
-                        exclude = excludeList // Отправляем объединенный массив
+                        exclude = excludeList
                     };
 
                     var content = new StringContent(
@@ -388,7 +296,9 @@ namespace testPlayer
                     System.Diagnostics.Debug.WriteLine($"[preload album] пошла очередь реков для альбома...");
                     string json = string.Empty;
                     using (var response = await _client.PostAsync(
-                        "https://localhost:7296/api/music/GetNextRecommended", content, token))
+                        $"{App.Settings.BaseAddress}api/music/GetNextRecommended", content, token))
+
+
                     {
                         response.EnsureSuccessStatusCode();
                         json = await response.Content.ReadAsStringAsync();
@@ -417,9 +327,7 @@ namespace testPlayer
                         _playbackAlbumQueue.Enqueue(nextTrack);
                         System.Diagnostics.Debug.WriteLine($"[preload album] {nextTrack.Artist} - {nextTrack.Title}, очередь: {_playbackAlbumQueue.Count}");
 
-                        // 3. УБИРАЕМ ТЯЖЕЛЫЙ СЕМАФОР И РАНДОМНЫЕ ЗАДЕРЖКИ (Task.Delay)
-                        // Плеер тупил, потому что семафор заставлял треки ждать по 3 секунды в очереди на резолв.
-                        // Запускаем чистый параллельный таск для мгновенного получения ссылок YouTube:
+
                         _ = Task.Run(async () =>
                         {
                             try
@@ -443,7 +351,7 @@ namespace testPlayer
                 {
                     System.Diagnostics.Debug.WriteLine($"[preload album] ошибка: {ex.Message}");
 
-                    // Если упала сеть или бэк недоступен, спим 1 секунду перед повторной попыткой, чтобы не вешать UI
+         
                     await Task.Delay(1000, token);
                 }
             }
@@ -471,11 +379,8 @@ namespace testPlayer
                     string currentTrackId = $"{currentArtist.ToLower()} - {currentTrack.ToLower()}";
                     if (!_globalHistory.Contains(currentTrackId)) _globalHistory.Add(currentTrackId);
 
-                    // 1. Собираем историю прослушивания (последние 40 треков)
                     var excludeList = _globalHistory.Skip(Math.Max(0, _globalHistory.Count - 40)).ToList();
 
-                    // 2. ПОДМЕШИВАЕМ РЕЗУЛЬТАТЫ ПОИСКА ИЗ UI В МАССИВ EXCLUDE ДЛЯ СЕРВЕРА
-                    // Бэк использует их как фолбэк, если Last.fm выдаст 404 на условный "rodle"
                     if (_mainWindow?.GlobalResults?.Tracks != null)
                     {
                         foreach (var searchTrack in _mainWindow.GlobalResults.Tracks)
@@ -492,7 +397,7 @@ namespace testPlayer
                     {
                         artist = currentArtist,
                         track = currentTrack,
-                        exclude = excludeList // Отправляем объединенный массив
+                        exclude = excludeList 
                     };
 
                     var content = new StringContent(
@@ -504,7 +409,10 @@ namespace testPlayer
                     string json = string.Empty;
                     System.Diagnostics.Debug.WriteLine($"[preload] пошла очередь реков обычных...");
                     using (var response = await _client.PostAsync(
-                        "https://localhost:7296/api/music/GetNextRecommended", content, token))
+
+                        $"{App.Settings.BaseAddress}api/music/GetNextRecommended", content, token))
+
+
                     {
                         response.EnsureSuccessStatusCode();
                         json = await response.Content.ReadAsStringAsync();
@@ -532,9 +440,7 @@ namespace testPlayer
                         _playbackQueue.Enqueue(nextTrack);
                         System.Diagnostics.Debug.WriteLine($"[preload] {nextTrack.Artist} - {nextTrack.Title}, очередь: {_playbackQueue.Count}");
 
-                        // 3. УБИРАЕМ ТЯЖЕЛЫЙ СЕМАФОР И РАНДОМНЫЕ ЗАДЕРЖКИ (Task.Delay)
-                        // Плеер тупил, потому что семафор заставлял треки ждать по 3 секунды в очереди на резолв.
-                        // Запускаем чистый параллельный таск для мгновенного получения ссылок YouTube:
+
                         _ = Task.Run(async () =>
                         {
                             try
@@ -558,7 +464,7 @@ namespace testPlayer
                 {
                     System.Diagnostics.Debug.WriteLine($"[preload] ошибка: {ex.Message}");
 
-                    // Если упала сеть или бэк недоступен, спим 1 секунду перед повторной попыткой, чтобы не вешать UI
+      
                     await Task.Delay(1000, token);
                 }
             }
@@ -591,19 +497,16 @@ namespace testPlayer
 
                 if (FullPlayerPage != null)
                 {
-                    // Меняем тексты большого плеера (подставь свои имена элементов из FullPlayerPage.xaml)
+            
                     FullPlayerPage.BIG_TrackTitle.Text = track.Title;
                     FullPlayerPage.BIG_Author.Text = track.Artist;
 
-                    // Если в большом плеере тоже есть слайдер времени:
-                    // FullPlayerPage.BigTimelineSlider.Maximum = track.Duration;
-                    // FullPlayerPage.BigTimelineSlider.Value = 0;
 
-                    // Меняем иконку большой кнопки на Паузу
+
+    
                     FullPlayerPage.BIG_GlobalPlayPauseBtn.Content = "\uE103";
                     FullPlayerPage.BIG_GlobalPlayPauseBtn.Padding = new Thickness(0);
 
-                    // Меняем большую обложку
                     if (!string.IsNullOrEmpty(track.ImageUrl))
                     {
                         FullPlayerPage.BIG_TrackImage.Visibility = System.Windows.Visibility.Visible;
@@ -624,7 +527,7 @@ namespace testPlayer
                 }
                 else
                 {
-                    // Если картинки нет, можно обратно скрывать элемент
+              
                     _mainWindow.BottomTrackImage.Visibility = System.Windows.Visibility.Collapsed;
 
                 }
@@ -635,7 +538,7 @@ namespace testPlayer
             _preloadCts?.Cancel();
             _preloadCts = new CancellationTokenSource();
 
-            if (clearForward) // clearForward=true только при ручном выборе
+            if (clearForward) 
             {
                 while (_playbackQueue.TryDequeue(out _)) { }
             }
@@ -662,20 +565,23 @@ namespace testPlayer
             if (_playbackAlbumQueue.Count < 30)
                 _ = PreloadRecommendationForAlbumsAsync(forwardTracks.Last().Artist, forwardTracks.Last().Title, _preloadCts.Token);
 
-            // Сначала резолвим "вперед", потом "назад"
+ 
             foreach (var track in forwardTracks.Concat(historyTracks))
             {
-                //if (token.IsCancellationRequested) break;
+              
 
-                // Если уже резолвлено (есть поток) — пропускаем
+              
                 if ((track.IsResolved || track.IsResolvingProcess) && !string.IsNullOrEmpty(track.StreamUrl)) continue;
                 track.IsResolvingProcess = true;
                 try
                 {
-                    // 1. Получаем метаданные (YtUrl и Duration)
+                  
                     if (string.IsNullOrEmpty(track.YtUrl))
                     {
-                        string url = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(track.Artist)}&track={Uri.EscapeDataString(track.Title)}";
+
+                        string url = $"{App.Settings.BaseAddress}api/music/stream?artist={Uri.EscapeDataString(track.Artist)}&track={Uri.EscapeDataString(track.Title)}";
+
+
                         var json = await _client.GetStringAsync(url);
                         var data = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json);
 
@@ -687,7 +593,7 @@ namespace testPlayer
                         }
                     }
 
-                    // 2. Получаем поток
+  
                     if (!string.IsNullOrEmpty(track.YtUrl))
                     {
 
@@ -703,104 +609,12 @@ namespace testPlayer
                 }
                 finally
                 {
-                    // 3. ОБЯЗАТЕЛЬНО сбрасываем флаг в finally, чтобы если резолв упал, 
-                    // мы могли попробовать снова позже
+
                     track.IsResolvingProcess = false;
                 }
             }
 
 
-            //if (_playbackAlbumQueue.Count < 30)
-            //    _ = PreloadRecommendationForAlbumsAsync(forwardTracks.Last().Artist, forwardTracks.Last().Title, _preloadCts.Token);
-
-
-
-
-
-
-
-
-
-
-            // Резолвим того, кто идет следующим (приоритет №1)
-
-
-
-            //if (_forwardStackAlbum.Count > 0)
-            //{
-            //    var next = _forwardStackAlbum.Peek();
-
-
-            //    string url = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(next.Artist)}&track={Uri.EscapeDataString(next.Title)}";
-            //    string json = await _client.GetStringAsync(url);
-            //    var data = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json);
-
-            //    if (data != null && data.Count >= 2)
-            //    {
-            //        double.TryParse(data[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double duration);
-
-            //        next.YtUrl = data[0];
-            //        next.Duration = duration;
-
-            //        //var trackToBePlayed = new TrackWithStreamDto
-            //        //{
-            //        //    Artist = next.Artist,
-            //        //    Title = next.Title,
-            //        //    YtUrl = data[0], // Сюда падает YouTube URL из бэкенда
-            //        //    Duration = duration,
-            //        //    IsResolved = false,
-            //        //    ImageUrl = next.ImageUrl // Сохраняем обложку
-            //        //};
-
-            //    }
-
-
-
-
-
-            //    if (!next.IsResolved)
-            //    {
-            //        next.StreamUrl = await ResolveAudioUrlAsync(next.YtUrl);
-            //        next.IsResolved = true;
-            //        System.Diagnostics.Debug.WriteLine("resolved  " + next.Title);
-            //    }
-            //}
-
-            //// Резолвим того, кто был до этого (приоритет №2)
-            //if (_historyStackAlbum.Count > 0)
-            //{
-            //    var prev = _historyStackAlbum.Peek();
-            //    string url = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(prev.Artist)}&track={Uri.EscapeDataString(prev.Title)}";
-            //    string json = await _client.GetStringAsync(url);
-            //    var data = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json);
-
-            //    if (data != null && data.Count >= 2)
-            //    {
-            //        double.TryParse(data[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double duration);
-
-            //        prev.YtUrl = data[0];
-            //        prev.Duration = duration;
-
-            //        //var trackToBePlayed = new TrackWithStreamDto
-            //        //{
-            //        //    Artist = next.Artist,
-            //        //    Title = next.Title,
-            //        //    YtUrl = data[0], // Сюда падает YouTube URL из бэкенда
-            //        //    Duration = duration,
-            //        //    IsResolved = false,
-            //        //    ImageUrl = next.ImageUrl // Сохраняем обложку
-            //        //};
-
-            //    }
-
-
-            //    if (!prev.IsResolved)
-            //    {
-            //        prev.StreamUrl = await ResolveAudioUrlAsync(prev.YtUrl);
-            //        prev.IsResolved = true;
-            //        System.Diagnostics.Debug.WriteLine("resolved  " + prev.Title);
-            //    }
-            //}
         }
 
 
@@ -809,22 +623,18 @@ namespace testPlayer
         {
             if (track == null) return;
 
-            // 1. Управление стеками (универсально для обоих режимов)
+
             if (addToHistory && _currentlyPlayingTrack != null)
             {
                 _historyStackAlbum.Push(_currentlyPlayingTrack);
 
             }
 
-            //if (clearForward)
-            //{
-            //    _forwardStackAlbum.Clear();
 
-            //}
 
             _currentlyPlayingTrack = track;
 
-            // 2. Блок обновления UI (оставляем как есть, он отличный)
+   
             await _mainWindow.Dispatcher.InvokeAsync(() =>
             {
                 _mainWindow.BottomTrackTitle.Text = $"{track.Artist} - {track.Title}";
@@ -836,19 +646,14 @@ namespace testPlayer
 
                 if (FullPlayerPage != null)
                 {
-                    // Меняем тексты большого плеера (подставь свои имена элементов из FullPlayerPage.xaml)
+        
                     FullPlayerPage.BIG_TrackTitle.Text = track.Title;
                     FullPlayerPage.BIG_Author.Text = track.Artist;
 
-                    // Если в большом плеере тоже есть слайдер времени:
-                    // FullPlayerPage.BigTimelineSlider.Maximum = track.Duration;
-                    // FullPlayerPage.BigTimelineSlider.Value = 0;
-
-                    // Меняем иконку большой кнопки на Паузу
                     FullPlayerPage.BIG_GlobalPlayPauseBtn.Content = "\uE103";
                     FullPlayerPage.BIG_GlobalPlayPauseBtn.Padding = new Thickness(0);
 
-                    // Меняем большую обложку
+        
                     if (!string.IsNullOrEmpty(track.ImageUrl))
                     {
                         FullPlayerPage.BIG_TrackImage.Visibility = System.Windows.Visibility.Visible;
@@ -869,18 +674,18 @@ namespace testPlayer
                 }
                 else
                 {
-                    // Если картинки нет, можно обратно скрывать элемент
+  
                     _mainWindow.BottomTrackImage.Visibility = System.Windows.Visibility.Collapsed;
 
                 }
             });
 
-            // 3. Запуск резолва и логика "Что дальше?"
+
             _preloadCts?.Cancel();
             _preloadCts = new CancellationTokenSource();
 
 
-            // Запускаем фоновый прогрев соседей в альбоме
+
             _ = PreloadAlbumSurroundingsAsync();
 
 
@@ -895,7 +700,7 @@ namespace testPlayer
 
         public void TimelineSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            // Пока тянем мышкой, C# сам обновляет текст на основе положения пипки
+
             if (_isDragging && _mainWindow.TotalTimeText != null & _mainWindow.CurrentTimeText != null)
             {
 
@@ -920,10 +725,10 @@ namespace testPlayer
         {
             int totalServers = _fastServers.Length + _fallbackServers.Length;
 
-            // Цикл идет по общему количеству серверов (2 быстрых + 2 резервных = 4 попытки)
+
             for (int attempt = 0; attempt < totalServers; attempt++)
             {
-                // Передаем номер попытки: 0 и 1 вернут быстрые, 2 и 3 — залогиненные
+    
                 string server = GetServerForAttempt(attempt);
                 try
                 {
@@ -952,36 +757,6 @@ namespace testPlayer
         }
 
 
-        //private async Task<string> ResolveAudioUrlAsync(string youtubeUrl)
-        //{
-        //    // пробуем каждый сервак по очереди
-        //    for (int attempt = 0; attempt < _resolveServers.Length; attempt++)
-        //    {
-        //        string server = GetNextServer();
-        //        try
-        //        {
-        //            string apiUrl = $"{server}/?url={Uri.EscapeDataString(youtubeUrl)}";
-        //            string json = await _client.GetStringAsync(apiUrl);
-        //            var data = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(json);
-        //            string url = (string)data.url;
-
-        //            if (!string.IsNullOrEmpty(url))
-        //            {
-        //                System.Diagnostics.Debug.WriteLine($"[resolve] готово через {server}");
-        //                return url;
-        //            }
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            System.Diagnostics.Debug.WriteLine($"[resolve] {server} упал: {ex.Message}, пробуем следующий");
-        //        }
-        //    }
-
-        //    System.Diagnostics.Debug.WriteLine("[resolve] все серваки упали");
-        //    return null;
-        //}
-
-
 
 
         private void PlayWithVlc(string audioUrl)
@@ -992,24 +767,56 @@ namespace testPlayer
                 return;
             }
 
-            System.Diagnostics.Debug.WriteLine($"[vlc] играем: {audioUrl}");
+            if (_libVlc != null)
+            {
+                try
+                {
+              
+                    _libVlc.Log -= VlcNativeLogHandler;
+                }
+                catch { }
+
+          
+                _libVlc.Log += VlcNativeLogHandler;
+                System.Diagnostics.Debug.WriteLine("[vlc] Логирование LibVLC успешно активировано.");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[vlc] КРИТИЧЕСКАЯ ОШИБКА: _libVlc равен null даже в момент воспроизведения!");
+            }
+
+   
+            string insecureUrl = audioUrl.Replace("https://", "http://");
+
+            System.Diagnostics.Debug.WriteLine($"[vlc] обычный ссылк: {audioUrl}");
+
+
+            System.Diagnostics.Debug.WriteLine($"[vlc] Включаем инсекьюрный поток: {insecureUrl}");
 
             _mediaPlayer.Stop();
             PlayerStatusChanged?.Invoke(false);
 
-            using (var media = new Media(_libVlc, new Uri(audioUrl)))
+            _libVlc.SetUserAgent("com.google.android.apps.youtube.vr/1.0 (Linux; U; Android 9; en_US;)", "http");
+
+            using (var media = new Media(_libVlc, insecureUrl, FromType.FromLocation))
             {
+      
+                media.AddOption("http-forward-cookies=0");
+                media.AddOption("http-continuous");
+
                 _mediaPlayer.Media = media;
             }
 
+
             _mediaPlayer.Play();
             PlayerStatusChanged?.Invoke(true);
-            //if (_mediaPlayer.IsPlaying)
-            //{
 
-            //    TxtStatus.Text = "VLC is playing";
-            //}
-            //else { TxtStatus.Text = "VLC stops"; }
+        }
+
+        private void VlcNativeLogHandler(object sender, LibVLCSharp.Shared.LogEventArgs e)
+        {
+
+            System.Diagnostics.Debug.WriteLine($"[VLC Native] [{e.Level}] {e.Message}");
         }
         public async void BtnPlay_Click(object sender, RoutedEventArgs e, SearchResultDto results)
         {
@@ -1068,15 +875,15 @@ namespace testPlayer
                 {
                     foreach (var track in results.Tracks)
                     {
-                        // Сверяем название и автора (как в твоем методе клика)
+     
                         bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                            // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                     
                             track.IsPlaying = false;
-                            break; // Выходим из цикла
+                            break; 
                         }
                     }
                 }
@@ -1105,15 +912,15 @@ namespace testPlayer
                 {
                     foreach (var track in results.Tracks)
                     {
-                        // Сверяем название и автора (как в твоем методе клика)
+               
                         bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                            // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                          
                             track.IsPlaying = true;
-                            break; // Выходим из цикла
+                            break; 
                         }
                     }
                 }
@@ -1121,37 +928,6 @@ namespace testPlayer
                 return;
             }
 
-            //_mainWindow.BottomTrackTitle.Text = "загрузка...";
-            ////BtnPlay.IsEnabled = false;
-
-            //string artist = "Judas Priest", track = "Painkiller";
-            //string url = $"https://localhost:7296/api/music/stream?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}";
-            //System.Diagnostics.Debug.WriteLine("utl  " + url);
-            //string json = await _client.GetStringAsync(url);
-            //var data = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json);
-
-            //if (data != null && data.Count >= 2)
-            //{
-            //    double.TryParse(data[1], System.Globalization.NumberStyles.Any,
-            //        System.Globalization.CultureInfo.InvariantCulture, out double duration);
-
-            //    var firstTrack = new TrackWithStreamDto
-            //    {
-            //        Artist = artist,
-            //        Title = track,
-            //        YtUrl = data[0],
-            //        Duration = duration,
-            //        IsResolved = false
-            //    };
-
-            //    firstTrack.StreamUrl = await ResolveAudioUrlAsync(firstTrack.YtUrl);
-            //    firstTrack.IsResolved = true;
-
-            //    await PlayTrack(firstTrack);
-            //    _mainWindow.GlobalPlayPauseBtn.Content = "\uE103"; // Две палочки (Пауза)
-            //    _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(0);
-            //    //BtnPlay.IsEnabled = true;
-            //}
 
         }
 
@@ -1167,7 +943,6 @@ namespace testPlayer
 
             TimeSpan t = TimeSpan.FromSeconds(seconds);
 
-            // Если трек идет дольше часа, выводим часы, иначе просто Минуты:Секунды
             return t.TotalHours >= 1
                 ? t.ToString(@"hh\:mm\:ss")
                 : t.ToString(@"mm\:ss");
@@ -1180,7 +955,7 @@ namespace testPlayer
         {
             if (_historyStackAlbum.Count == 0)
             {
-                //_mainWindow.BottomTrackTitle.Text = "Это самый первый трек";
+             
                 return;
             }
 
@@ -1188,44 +963,43 @@ namespace testPlayer
             {
                 //BtnPrev.IsEnabled = false;
 
-                // Текущий трек отправляем в историю "будущего"
                 if (_currentlyPlayingTrack != null)
                     _forwardStackAlbum.Push(_currentlyPlayingTrack);
 
-                // Достаем трек из прошлого
+   
                 var previousTrack = _historyStackAlbum.Pop();
 
 
-                
+
 
                 if (previousTrack != null && results.Tracks != null && _currentlyPlayingTrack != null)
                 {
                     foreach (var track in results.Tracks)
                     {
-                        // Сверяем название и автора (как в твоем методе клика)
+          
                         bool isMatch = string.Equals(track.Title?.Trim(), previousTrack.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), previousTrack.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                            // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                          
                             track.IsPlaying = true;
-                            break; // Выходим из цикла
+                            break;
                         }
                     }
 
                     foreach (var track in results.Tracks)
                     {
-                        // Сверяем название и автора (как в твоем методе клика)
+                    
                         bool isMatch = string.Equals(track.Title?.Trim(), _currentlyPlayingTrack.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), _currentlyPlayingTrack.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                            // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                         
                             track.IsPlaying = false;
 
-                            break; // Выходим из цикла
+                            break; 
                         }
                     }
 
@@ -1233,9 +1007,7 @@ namespace testPlayer
                 }
 
 
-                // Играем его. 
-                // false -> не добавлять в историю прошлого повторно (мы его оттуда только что взяли)
-                // false -> НЕ очищать стек будущего, иначе мы потеряем цепочку для кнопки "Вперед"
+
                 await PlayAlbumTrack(previousTrack, addToHistory: false, clearForward: false);
             }
             catch (Exception ex)
@@ -1244,7 +1016,7 @@ namespace testPlayer
             }
             finally
             {
-                //BtnPrev.IsEnabled = true;
+             
             }
         }
 
@@ -1253,7 +1025,7 @@ namespace testPlayer
         {
             if (_historyStack.Count == 0)
             {
-                //_mainWindow.BottomTrackTitle.Text = "Это самый первый трек";
+         
                 return;
             }
 
@@ -1261,34 +1033,32 @@ namespace testPlayer
             {
                 //BtnPrev.IsEnabled = false;
 
-                // Текущий трек отправляем в историю "будущего"
+          
                 if (_currentlyPlayingTrack != null)
                     _forwardStack.Push(_currentlyPlayingTrack);
 
-                // Достаем трек из прошлого
+      
                 var previousTrack = _historyStack.Pop();
 
                 if (previousTrack != null && results.Tracks != null)
                 {
                     foreach (var track in results.Tracks)
                     {
-                        // Сверяем название и автора (как в твоем методе клика)
+             
                         bool isMatch = string.Equals(track.Title?.Trim(), previousTrack.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), previousTrack.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                            // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                           
                             track.IsPlaying = true;
-                            break; // Выходим из цикла
+                            break;
                         }
                     }
                 }
 
 
-                // Играем его. 
-                // false -> не добавлять в историю прошлого повторно (мы его оттуда только что взяли)
-                // false -> НЕ очищать стек будущего, иначе мы потеряем цепочку для кнопки "Вперед"
+      
                 await PlayTrack(previousTrack, addToHistory: false, clearForward: false);
             }
             catch (Exception ex)
@@ -1297,7 +1067,7 @@ namespace testPlayer
             }
             finally
             {
-                //BtnPrev.IsEnabled = true;
+             
             }
         }
 
@@ -1322,15 +1092,15 @@ namespace testPlayer
                 {
                     foreach (var track in results.Tracks)
                     {
-                        // Сверяем название и автора (как в твоем методе клика)
+                    
                         bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                            // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                            
                             track.IsPlaying = false;
-                            break; // Выходим из цикла
+                            break; 
                         }
                     }
                 }
@@ -1344,15 +1114,15 @@ namespace testPlayer
                     {
                         foreach (var track in results.Tracks)
                         {
-                            // Сверяем название и автора (как в твоем методе клика)
+                          
                             bool isMatch = string.Equals(track.Title?.Trim(), nextFromHistory.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                         && string.Equals(track.Author?.Trim(), nextFromHistory.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                             if (isMatch)
                             {
-                                // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                               
                                 track.IsPlaying = true;
-                                //break; // Выходим из цикла
+                                break; 
                             }
 
                         }
@@ -1398,8 +1168,6 @@ namespace testPlayer
                 }
 
                 // ПРИОРИТЕТ 3: очередь пуста, экстренный поиск
-                /// ПРИОРИТЕТ 3: очередь пуста, экстренный поиск
-                // ПРИОРИТЕТ 3: ждём пока очередь наполнится
                 if (_currentlyPlayingTrack != null)
                 {
                     _mainWindow.BottomTrackTitle.Text = "Ждём очередь...";
@@ -1409,7 +1177,7 @@ namespace testPlayer
                     }
                     _mediaPlayer.Stop();
 
-                    var cts = new CancellationTokenSource(30000); // ждём максимум 30 сек
+                    var cts = new CancellationTokenSource(30000); 
                     while (_playbackQueue.Count == 0 && !cts.Token.IsCancellationRequested)
                         await Task.Delay(200);
 
@@ -1477,15 +1245,15 @@ namespace testPlayer
             {
                 foreach (var track in results.Tracks)
                 {
-                    // Сверяем название и автора (как в твоем методе клика)
+                 
                     bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                 && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                     if (isMatch)
                     {
-                        // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                      
                         track.IsPlaying = false;
-                        break; // Выходим из цикла
+                        break; 
                     }
                 }
             }
@@ -1535,15 +1303,15 @@ namespace testPlayer
                     {
                         foreach (var track in results.Tracks)
                         {
-                            // Сверяем название и автора (как в твоем методе клика)
+                            
                             bool isMatch = string.Equals(track.Title?.Trim(), nextFromHistory.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                         && string.Equals(track.Author?.Trim(), nextFromHistory.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                             if (isMatch)
                             {
-                                // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                                
                                 track.IsPlaying = true;
-                                break; // Выходим из цикла
+                                break;
                             }
                         }
                     }
@@ -1577,7 +1345,7 @@ namespace testPlayer
                     {
                         //TxtStatus.Text = "buffering...";
                         var cts = new CancellationTokenSource(10000);
-                        while (!next.IsResolved && !cts.Token.IsCancellationRequested) // ← был баг тут, ! пропущен
+                        while (!next.IsResolved && !cts.Token.IsCancellationRequested) 
                         {
                             await Task.Delay(200);
                         }
@@ -1588,8 +1356,6 @@ namespace testPlayer
                 }
 
                 // ПРИОРИТЕТ 3: очередь пуста, экстренный поиск
-                /// ПРИОРИТЕТ 3: очередь пуста, экстренный поиск
-                // ПРИОРИТЕТ 3: ждём пока очередь наполнится
                 if (_currentlyPlayingTrack != null)
                 {
                     _mainWindow.BottomTrackTitle.Text = "Ждём очередь...";
@@ -1599,7 +1365,7 @@ namespace testPlayer
                     }
                     _mediaPlayer.Stop();
                     PlayerStatusChanged?.Invoke(false);
-                    var cts = new CancellationTokenSource(30000); // ждём максимум 30 сек
+                    var cts = new CancellationTokenSource(30000); 
                     while (_playbackQueue.Count == 0 && !cts.Token.IsCancellationRequested)
                         await Task.Delay(200);
 
@@ -1671,21 +1437,21 @@ namespace testPlayer
             {
                 foreach (var track in results.Tracks)
                 {
-                    // Сверяем название и автора (как в твоем методе клика)
+                 
                     bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                 && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                     if (isMatch)
                     {
-                        // Нашли! Меняем флаг в "сырых" данных до инициализации UI
+                       
                         track.IsPlaying = false;
-                        break; // Выходим из цикла
+                        break; 
                     }
                 }
             }
             try
             {
-                //BtnNext.IsEnabled = false;
+               
                 await PlayNextTrackAsync(results);
             }
             catch (Exception ex)
@@ -1694,23 +1460,18 @@ namespace testPlayer
             }
             finally
             {
-                //BtnNext.IsEnabled = true;
+           
             }
         }
 
 
-        //public void TimelineSlider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
-        //{
-        //    _isDragging = true;
-
-        //}
 
         public void TimelineSlider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
         {
-            // Включаем защиту для мелкого слайдера
+           
             _isDragging = true;
 
-            // Включаем защиту для большого слайдера, если его страница открыта
+           
             if (FullPlayerPage != null)
             {
                 FullPlayerPage._isDraggingBigSlider = true;
@@ -1722,11 +1483,11 @@ namespace testPlayer
             var slider = sender as System.Windows.Controls.Slider;
             if (slider != null)
             {
-                // ИСПРАВЛЕНО: Берем значение ТОГО слайдера, который юзер только что отпустил!
+                
                 _mediaPlayer.Time = (long)(slider.Value * 1000);
             }
 
-            // Выключаем все защиты обратно
+          
             _isDragging = false;
             if (FullPlayerPage != null)
             {
@@ -1736,36 +1497,26 @@ namespace testPlayer
 
 
 
-        //public async void TimelineSlider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
-        //{
-        //    _mediaPlayer.Time = (long)(_mainWindow.TimelineSlider.Value * 1000);
-        //    //_mediaPlayer.Time = (long)(FullPlayerPage.BIG_Slider.Value * 1000);
-        //    // обратно в миллисекунды
-        //    _isDragging = false;
-        //}
-
         public async void TimelineSlider_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            // 1. Проверяем, что кликнули именно по слайдеру, а не по самой пипке (Thumb)
-            // Если кликнуть по Thumb, сработает стандартный Drag, и нам мешать ему не нужно
+
             if (e.OriginalSource is System.Windows.Controls.Primitives.Thumb)
                 return;
 
             var slider = (System.Windows.Controls.Slider)sender;
 
-            // 2. Получаем позицию клика относительно самого слайдера
+      
             System.Windows.Point clickPoint = e.GetPosition(slider);
 
-            // 3. Вычисляем процент сдвига (от 0.0 до 1.0) в зависимости от ширины слайдера
+     
             double relativePosition = clickPoint.X / slider.ActualWidth;
 
-            // Ограничиваем рамками от 0 до 1 на всякий случай
+
             relativePosition = Math.Max(0.0, Math.Min(1.0, relativePosition));
 
-            // 4. Переводим процент в реальное значение слайдера (время трека)
+      
             double newValue = slider.Minimum + (relativePosition * (slider.Maximum - slider.Minimum));
 
-            // 5. Заставляем UI временно замереть, как при перетаскивании
             _isDragging = true;
 
             if (FullPlayerPage != null)
@@ -1779,69 +1530,13 @@ namespace testPlayer
                 FullPlayerPage._isDraggingBigSlider = false;
             }
 
-            // 8. Возвращаем всё назад
+  
             _isDragging = false;
         }
 
 
 
-
-        public async Task test()
-        {
-            string artist = "iron maiden";
-            string track = "wasted years";
-            string baseUrl = "https://localhost:7296/api/music/stream";
-            string requestUrl = $"{baseUrl}?artist={Uri.EscapeDataString(artist)}&track={Uri.EscapeDataString(track)}";
-
-            string youtubeUrl = "";
-            // 2. Делаем GET запрос
-            
-
-
-            // 3. УБИРАЕМ ТЯЖЕЛЫЙ СЕМАФОР И РАНДОМНЫЕ ЗАДЕРЖКИ (Task.Delay)
-            // Плеер тупил, потому что семафор заставлял треки ждать по 3 секунды в очереди на резолв.
-            // Запускаем чистый параллельный таск для мгновенного получения ссылок YouTube:
-            _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var sw = Stopwatch.StartNew();
-
-
-                        var response = await _client.GetAsync(requestUrl);
-
-                        // 3. Проверяем, что сервер ответил кодом 200 (OK)
-                        response.EnsureSuccessStatusCode();
-
-                        // 4. Читаем результат
-                        string json = await response.Content.ReadAsStringAsync();
-
-                        List<string> data = JsonConvert.DeserializeObject<List<string>>(json);
-
-                        if (data != null && data.Count > 0)
-                        {
-                            youtubeUrl = data[0]; // Вот твоя ссылка!
-                            System.Diagnostics.Debug.WriteLine($"Полученная ссылка: {youtubeUrl}");
-                        }
-
-
-                        var StreamUrl = await ResolveAudioUrlAsync(youtubeUrl);
-
-
-                        System.Diagnostics.Debug.WriteLine("test url:  " + StreamUrl);
-                        sw.Stop();
-                        System.Diagnostics.Debug.WriteLine($"--- тест завершен за {sw.ElapsedMilliseconds} мс ---");
-                        PlayWithVlc(StreamUrl);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[preload] Ошибка резолва ссылки YouTube: {ex.Message}");
-                    }
-                });
-
-
-
-        }
+       
 
 
 

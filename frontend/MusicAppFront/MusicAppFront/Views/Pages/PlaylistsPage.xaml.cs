@@ -15,9 +15,7 @@ using System.Windows.Shapes;
 
 namespace MusicAppFront.Views.Pages
 {
-    /// <summary>
-    /// Логика взаимодействия для PlaylistsPage.xaml
-    /// </summary>
+
     public partial class PlaylistsPage : Page
     {
         public PlaylistsPage()

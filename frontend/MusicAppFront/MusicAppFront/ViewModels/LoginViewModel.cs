@@ -16,13 +16,13 @@ namespace MusicAppFront.ViewModels
         [RelayCommand]
         private void Login()
         {
-            // Здесь будет вызов бэкенда
+            
         }
 
         [RelayCommand]
         private void SwitchToRegister()
         {
-            // Логика переключения на регистрацию
+            
         }
     }
 }
