@@ -1,0 +1,49 @@
+﻿<Page x:Class="MusicAppFront.Views.Pages.HomePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:MusicAppFront.Views.Pages"
+      mc:Ignorable="d" 
+      Title="HomePage">
+
+    <ScrollViewer VerticalScrollBarVisibility="Hidden">
+        <StackPanel Margin="30,20">
+            <TextBlock Text="Прослушанные треки"
+                   Foreground="{StaticResource PrimaryText}"
+                   FontSize="32" 
+                   FontWeight="Black" 
+                   Margin="10,0,0,30"/>
+
+
+
+
+            <ItemsControl x:Name="HistoryItemsControl">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ContentControl Style="{StaticResource TrackCardStyle}" 
+                            MouseLeftButtonDown="OnTrackClicked"
+                            Cursor="Hand" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+
+            <TextBlock Text="Ваш выбор" 
+                   Foreground="{StaticResource PrimaryText}" 
+                   FontSize="32" 
+                   FontWeight="Black" 
+                   Margin="10,30,0,30"/>
+            <WrapPanel>
+                <ContentControl Style="{StaticResource TrackCardStyle}"/>
+                <ContentControl Style="{StaticResource TrackCardStyle}"/>
+            </WrapPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

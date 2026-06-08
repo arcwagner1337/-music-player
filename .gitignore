@@ -1,0 +1,17 @@
+
+
+**/bin/
+**/obj/
+**/.vs/
+
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.log
+*.tmp
+appsettings.json
+
+
+.env
+/.vs

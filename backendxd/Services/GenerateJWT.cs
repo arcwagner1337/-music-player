@@ -1,0 +1,39 @@
+﻿using backendxd.Models;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+
+namespace backendxd.Services
+{
+    public class GenerateJWT
+    {
+        private readonly IConfiguration _config;
+
+        public GenerateJWT(IConfiguration config)
+        {
+            _config = config;
+        }
+
+
+        public string GenerateJwtToken(string username)
+        {
+            var claims = new[] { new Claim(ClaimTypes.Name, username) };
+         
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(AppSettings.JwtKey));
+
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                //issuer: "music_service",
+                claims: claims,
+                expires: DateTime.Now.AddDays(7),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+    }
+}
