@@ -1,23 +1,63 @@
 
 
 using backendxd.Data;
+using backendxd.Models;
 using backendxd.Services;
+using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
-//System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
+string envPath = File.Exists(".env")
+                 ? ".env"
+                 : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\", ".env");
+
+if (File.Exists(envPath))
+{
+    DotNetEnv.Env.Load(envPath);
+}
+else
+{
+    throw new Exception($"Файл .env не найден ни в папке сборки, ни в корне проекта по пути: {Path.GetFullPath(envPath)}");
+}
+
+
 var builder = WebApplication.CreateBuilder(args);
+
+
+
+AppSettings.DbConString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
+        ?? throw new Exception("Критическая ошибка: DB_CONNECTION_STRING не задан в .env!");
+
+AppSettings.JwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
+        ?? throw new Exception("Критическая ошибка: JWT_KEY не задан в .env!");
+
+AppSettings.MailSender = Environment.GetEnvironmentVariable("MAIL_SENDER")
+        ?? throw new Exception("Критическая ошибка: MAIL_SENDER не задан в .env!");
+
+AppSettings.MailAppKey = Environment.GetEnvironmentVariable("MAIL_APP_KEY")
+        ?? throw new Exception("Критическая ошибка: MAIL_APP_KEY не задан в .env!");
+
+AppSettings.LastFmApiKey = Environment.GetEnvironmentVariable("LASTFM_API_KEY")
+        ?? throw new Exception("Критическая ошибка: LASTFM_API_KEY не задан в .env!");
+
+AppSettings.WorkerUrl2 = Environment.GetEnvironmentVariable("WORKER_URL2")
+        ?? throw new Exception("Критическая ошибка: WORKER_URL2 не задан в .env!");
+
+
+
 Environment.SetEnvironmentVariable("SLAVA_UKRAINI", "1");
-//builder.Services.AddDbContext<AppDbContext>(options =>
-//    options.UseNpgsql(builder.Configuration.GetConnectionString("NeonDB")));
+
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql("Host=ep-dark-king-anl9c26e-pooler.c-6.us-east-1.aws.neon.tech;Database=neondb;Username=neondb_owner;Password=npg_qkFOej7a0zQf;SSL Mode=Require;Trust Server Certificate=true"));
+
+    options.UseNpgsql(AppSettings.DbConString));
+
 builder.Services.AddScoped<GenerateJWT>();
 builder.Services.AddScoped<mail>();
-builder.Services.AddScoped<MusicService>();
+
 builder.Services.AddScoped<MusicService2>();
 builder.Services.AddMemoryCache();
 
@@ -50,26 +90,27 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,// Пока тетстим - false
+            ValidateIssuer = false,
             ValidateAudience = false,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            // Твой фиксированный ключ
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("default_secret_key_32_chars_long!!"))
+
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(AppSettings.JwtKey))
+
         };
 
-        // Логи, чтобы видеть, если что-то пойдет не так
+
         options.Events = new JwtBearerEvents
         {
             OnAuthenticationFailed = context =>
             {
-                // ЭТО ВЫВЕДЕТ ПРИЧИНУ 401 В КОНСОЛЬ
+          
                 Console.WriteLine($"[AUTH ERROR]: {context.Exception.Message}");
                 return Task.CompletedTask;
             },
             OnMessageReceived = context =>
             {
-                // Логируем, видит ли сервер токен
+           
                 var token = context.Request.Headers["Authorization"].ToString();
                 Console.WriteLine($"[AUTH] Received header: {token}");
                 return Task.CompletedTask;
@@ -78,7 +119,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 
-// Add services to the container.
+
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

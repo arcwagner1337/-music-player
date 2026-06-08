@@ -75,7 +75,7 @@ namespace backendxd.Models
         public string Username { get; set; } = string.Empty;
 
         [Column("track_title")]
-        public string? TrackTitle { get; set; } // string? означает, что может быть NULL
+        public string? TrackTitle { get; set; } 
 
         [Column("track_artist")]
         public string? TrackArtist { get; set; }

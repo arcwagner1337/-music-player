@@ -18,11 +18,11 @@ namespace backendxd.Controllers
 
 
         [Authorize]
-        // Этот атрибут заставит проверять JWT
+
         [HttpGet("me")]
         public async Task<IActionResult> GetMe()
         {
-            // 1. Извлекаем имя пользователя из Claims (оно там, если ты передавал его в GenerateJwtToken)
+       
             var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
                ?? User.FindFirst("name")?.Value
                ?? User.Identity?.Name;
@@ -32,9 +32,9 @@ namespace backendxd.Controllers
                 return Unauthorized();
             }
 
-            // 2. Ищем пользователя в БД
+
             var user = await _context.Users
-                .Select(u => new { // Не отправляем пароль на фронт ради безопасности
+                .Select(u => new { 
                     u.Id,
                     u.Username,
                     u.Email

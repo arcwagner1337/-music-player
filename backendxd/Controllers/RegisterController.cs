@@ -48,7 +48,7 @@ namespace backendxd.Controllers
             {
                 username = request.Username,
                 email = request.Email,
-                password = request.Password, // в идеале бы тут BCrypt.HashPassword(request.Password)
+                password = request.Password, 
                 code = code,
                 expires_at = DateTime.UtcNow.AddMinutes(15)
             };
@@ -84,7 +84,7 @@ namespace backendxd.Controllers
                 {
                     Username = pending.username,
                     Email = pending.email,
-                    Password = pending.password, //  BCrypt позже надо будет
+                    Password = pending.password, 
                     SubStart = 0,
                     SubEnd = 0
                 };

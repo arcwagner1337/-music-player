@@ -46,38 +46,8 @@ namespace backendxd.Controllers
 
             return ytTrackdata;
 
-            // Сначала получаем ссылку (из кэша или через yt-dlp)
-            //string directUrl = await _musicService.GetCachedDirectUrlAsync(ytTrack.Url);
-
-            //// Запускаем FFmpeg сразу
-            //using var ffmpegProcess = _musicService.GetFFmpegAudioProcess(directUrl, seek);
-
-            //Response.ContentType = "audio/l16";
-            //await ffmpegProcess.StandardOutput.BaseStream.CopyToAsync(Response.Body);
         }
 
-
-        //[HttpGet("GetNextRecommended")]
-        //public async Task<IActionResult> GetNextRecommended(string artist, string track, [FromQuery] string[] exclude)
-        //{
-        //    // Передаем exclude в сервис
-        //    var excludedList = exclude?.Select(x => x.ToLower()).ToList() ?? new List<string>();
-
-        //    var recommended = await _musicService.GetSimilarTrackAsync(artist, track, excludedList);
-        //    if (recommended == null) return NotFound();
-
-        //    var ytInfo = await _musicService.SearchOnYouTubeAsync3(recommended.Author, recommended.Title);
-        //    if (ytInfo == null) return NotFound();
-
-        //    return Ok(new
-        //    {
-        //        Artist = recommended.Author,
-        //        Title = recommended.Title,
-        //        ImageUrl = recommended.ImageUrl,
-        //        StreamUrl = ytInfo[0],
-        //        Duration = ytInfo[1]
-        //    });
-        //}
 
 
      
@@ -85,7 +55,7 @@ namespace backendxd.Controllers
         [HttpPost("toggle")]
         public async Task<IActionResult> Toggle([FromBody] FavoriteTrackDto req)
         {
-            // Ищем трек в базе
+        
             var existing = await _context.FavoriteTracks
                 .FirstOrDefaultAsync(f => f.Username == req.UserName
                                        && f.Title == req.Title
@@ -93,18 +63,18 @@ namespace backendxd.Controllers
 
             if (existing != null)
             {
-                // Если есть — удаляем (отлайкиваем)
+        
                 _context.FavoriteTracks.Remove(existing);
             }
             else
             {
-                // Если нет — добавляем
+          
                 _context.FavoriteTracks.Add(new FavoriteTrack
                 {
                     Username = req.UserName,
                     Title = req.Title,
                     Author = req.Author,
-                    ImageUrl = req.ImageUrl, // Убедись, что добавил Url в модель FavoriteTrack
+                    ImageUrl = req.ImageUrl, 
                 });
             }
 
@@ -142,47 +112,7 @@ namespace backendxd.Controllers
 
 
 
-        [HttpPost("GetNextRecommended0")]
-        public async Task<IActionResult> GetNextRecommended([FromBody] GetNextRecommendedRequest request)
-        {
-
-            Console.WriteLine($"[server] artist: {request?.Artist}, track: {request?.Track}, exclude count: {request?.Exclude?.Count}");
-
-            var excludedList = request.Exclude?.Select(x => x.ToLower()).ToList() ?? new List<string>();
-
-            var recommended = await _musicService.GetSimilarTrackAsync(request.Artist, request.Track, excludedList);
-
-            if (recommended == null)
-            {
-                Console.WriteLine($"[server] ⚠️ Трек [{request.Track}] не найден в Last.fm. Запуск фолбэка по артисту [{request.Artist}]...");
-                recommended = await _musicService.GetTopTracksByArtistAsync(request.Artist, excludedList);
-            }
-
-
-            // fallback — ищем по другому артисту из истории
-            if (recommended == null && excludedList.Count > 0)
-            {
-                var randomPast = excludedList[new Random().Next(excludedList.Count)];
-                var parts = randomPast.Split(" - ", 2);
-                if (parts.Length == 2)
-                    recommended = await _musicService.GetSimilarTrackAsync(parts[0], parts[1], excludedList);
-            }
-
-            if (recommended == null) return NotFound();
-
-            var ytInfo = await _musicService.SearchOnYouTubeAsync3(recommended.Author, recommended.Title);
-            if (ytInfo == null) return NotFound();
-
-            return Ok(new
-            {
-                artist = recommended.Author,
-                title = recommended.Title,
-                imageUrl = recommended.ImageUrl,
-                streamUrl = ytInfo[0],
-                duration = ytInfo[1]
-            });
-        }
-
+       
 
 
         [HttpPost("GetNextRecommended")]
@@ -190,17 +120,15 @@ namespace backendxd.Controllers
         {
             var excludedList = request.Exclude?.Select(x => x.ToLower()).ToList() ?? new List<string>();
 
-            // 1. Пытаемся взять похожие
+          
             var recommendedBatch = await _musicService.GetSimilarTracksBatchAsync(request.Artist, request.Track, excludedList, 15);
 
-            // 2. Фолбэк по артисту
             if (recommendedBatch.Count == 0)
             {
                 Console.WriteLine($"[server] ⚠️ Фолбэк по артисту: {request.Artist}");
                 recommendedBatch = await _musicService.GetTopTracksByArtistBatchAsync(request.Artist, excludedList, 15);
             }
 
-            // 3. Глобальный фолбэк (самый крайний)
             if (recommendedBatch.Count == 0)
             {
                 Console.WriteLine("[server] ⚠️ Глобальный фолбэк (Charts)");
@@ -209,7 +137,7 @@ namespace backendxd.Controllers
 
             if (recommendedBatch.Count == 0) return NotFound();
 
-            // 2. Параллельно запрашиваем YouTube ссылки для всей пачки
+      
             var youtubeTasks = recommendedBatch.Select(async rec =>
             {
                 try
@@ -227,19 +155,18 @@ namespace backendxd.Controllers
                         };
                     }
                 }
-                catch { /* Игнорируем треки, которые не нашлись на ютубе */ }
+                catch {  }
                 return null;
             });
 
-            // Ждем все ютуб-запросы
+        
             var results = await Task.WhenAll(youtubeTasks);
 
-            // Отсеиваем те, что вернули null (не нашлись)
+
             var validResults = results.Where(r => r != null).ToList();
 
             if (validResults.Count == 0) return NotFound();
 
-            // Возвращаем массив треков!
             return Ok(validResults);
         }
 
@@ -254,111 +181,7 @@ namespace backendxd.Controllers
         }
 
 
-        //public async Task GetStream(string artist, string track, int seek = 0)
-        //{
-        //    Console.WriteLine($"[START] Запрос: {artist} - {track}");
-        //    try
-        //    {
-        //        // 1. Ищем видео (твой старый добрый метод поиска)
-        //        var ytTrack = await _musicService.SearchOnYouTubeAsync(artist, track);
-        //        if (ytTrack == null)
-        //        {
-        //            Console.WriteLine("[ERROR] Трек не найден");
-        //            Response.StatusCode = 404;
-        //            return;
-        //        }
-
-        //        // 2. Получаем процесс FFmpeg, который уже начал тянуть звук
-        //        // Важно использовать using, чтобы процесс убился, когда клиент отключится
-        //        using var ffmpegProcess = _musicService.GetFFmpegAudioProcess(ytTrack.Url, seek);
-
-        //        Console.WriteLine($"[OK] FFmpeg запущен для: {ytTrack.Url}");
-
-        //        // 3. Настраиваем заголовки ответа
-        //        // Говорим, что это сырой аудиопоток (PCM)
-        //        Response.ContentType = "audio/l16";
-        //        Response.StatusCode = 200;
-
-        //        // 4. Гвоздь программы: перекачиваем байты из FFmpeg прямо в тело HTTP-ответа
-        //        // Этот цикл будет работать, пока FFmpeg не выдаст весь трек или пока WPF не закроет соединение
-        //        await ffmpegProcess.StandardOutput.BaseStream.CopyToAsync(Response.Body);
-
-        //        Console.WriteLine("[DONE] Передача потока завершена");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine($"[CRITICAL ERROR]: {ex.Message}");
-        //        if (!Response.HasStarted) Response.StatusCode = 500;
-        //    }
-        //}
-
-
-        //public async Task<IActionResult> GetStream(string artist, string track)
-        //{
-        //    Console.WriteLine($"[START] Запрос: {artist} - {track}");
-        //    try
-        //    {
-        //        var ytTrack = await _musicService.SearchOnYouTubeAsync(artist, track);
-        //        if (ytTrack == null)
-        //        {
-        //            Console.WriteLine("[ERROR] Трек не найден в поиске");
-        //            return NotFound();
-        //        }
-        //        Console.WriteLine($"[OK] Нашли видео: {ytTrack.Url}");
-
-        //        var manifest = await _yt.Videos.Streams.GetManifestAsync(ytTrack.Url);
-        //        Console.WriteLine("[OK] Манифест получен");
-
-        //        //var streamInfo = manifest.GetAudioOnlyStreams()
-        //        //    .Where(s => s.Container == YoutubeExplode.Videos.Streams.Container.WebM)
-        //        //    .GetWithHighestBitrate();
-
-        //        var streamInfo = manifest.GetAudioOnlyStreams()
-        //            .Where(s => s.Container == YoutubeExplode.Videos.Streams.Container.Mp4) // Пробуем MP4 контейнер
-        //            .GetWithHighestBitrate();
-
-        //        if (streamInfo == null)
-        //        {
-        //            Console.WriteLine("[ERROR] Поток не найден");
-        //            return NotFound();
-        //        }
-
-        //        // ВАЖНО: попробуй сначала просто вернуть URL, чтобы проверить, работает ли поиск вообще
-        //        // return Ok(streamInfo.Url); 
-
-        //        Console.WriteLine($"[OK] Поток выбран: {streamInfo.Size}");
-        //        var stream = await _yt.Videos.Streams.GetAsync(streamInfo);
-
-        //        Response.Headers.Add("Content-Disposition", $"attachment; filename=\"{Uri.EscapeDataString(track)}.mp4\"");
-        //        Response.Headers.Add("Accept-Ranges", "bytes");
-        //        Response.ContentType = "audio/mp4";
-
-        //        Console.WriteLine("[OK] Стрим открыт, начинаю передачу...");
-
-        //        //return File(stream, "audio/mp4", enableRangeProcessing: true);
-        //        //return File(stream, "audio/webm", enableRangeProcessing: true);
-
-        //        await stream.CopyToAsync(Response.Body, 65536);
-        //        return new EmptyResult();
-
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine($"[CRITICAL ERROR]: {ex.Message}");
-        //        return StatusCode(500, ex.Message);
-        //    }
-        //}
-
-        //public async Task<IActionResult> GetStream(string artist, string track)
-        //{
-        //    var streamUrl = await _musicService.GetFullStreamByTrackInfoAsync(artist, track);
-
-        //    if (string.IsNullOrEmpty(streamUrl))
-        //        return NotFound("Не удалось найти аудио-поток");
-
-
-        //    return Ok(new { url = streamUrl });
-        //}
+       
 
         [HttpGet("search")]
         public async Task<ActionResult<object>> Search([FromQuery] string query)
@@ -416,22 +239,6 @@ namespace backendxd.Controllers
 
 
 
-        [HttpGet("GetSimilarTrack")]
-        public async Task<ActionResult<TrackDto2>> GetRecommendation([FromQuery] string artist, [FromQuery] string track)
-        {
-
-            var recommendedTrack = await _musicService.GetSimilarTrackAsync(artist, track, []);
-
-
-            if (recommendedTrack == null)
-            {
-                return NotFound("Не удалось найти похожий трек");
-            }
-
-
-            return Ok(recommendedTrack);
-        }
-
 
         [HttpPost("create-playlist")]
         public async Task<IActionResult> CreatePlaylist([FromBody] CreatePlaylistDto dto)
@@ -441,7 +248,7 @@ namespace backendxd.Controllers
                 return BadRequest(new { message = "Название плейлиста и имя пользователя обязательны" });
             }
 
-            // Проверяем, может у этого юзера уже есть плейлист с таким именем?
+  
             bool exists = await _context.PlaylistsTracks.AnyAsync(p =>
                 p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
 
@@ -454,7 +261,7 @@ namespace backendxd.Controllers
             {
                 PlaylistName = dto.PlaylistName,
                 Username = dto.Username,
-                TrackTitle = null,  // Пустой при создании
+                TrackTitle = null,  
                 TrackArtist = null,
                 ImageUrl = null
             };
@@ -465,11 +272,11 @@ namespace backendxd.Controllers
             return Ok(new { message = "Плейлист успешно создан!" });
         }
 
-        // 2. РОУТ: Добавить трек в существующий плейлист
+   
         [HttpPost("add-track-to-playlist")]
         public async Task<IActionResult> AddTrackToPlaylist([FromBody] AddTrackDto dto)
         {
-            // Ищем строку-заглушку плейлиста, чтобы убедиться, что он вообще существует
+    
             var playlistExists = await _context.PlaylistsTracks.AnyAsync(p =>
                 p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
 
@@ -478,8 +285,7 @@ namespace backendxd.Controllers
                 return NotFound(new { message = "Плейлист не найден" });
             }
 
-            // Проверяем, если первая запись плейлиста была пустой заглушкой (TrackTitle == null), 
-            // мы можем использовать её, чтобы не плодить лишнюю пустую строку.
+
             var emptyRow = await _context.PlaylistsTracks.FirstOrDefaultAsync(p =>
                 p.Username == dto.Username &&
                 p.PlaylistName == dto.PlaylistName &&
@@ -487,14 +293,14 @@ namespace backendxd.Controllers
 
             if (emptyRow != null)
             {
-                // Заполняем пустую заглушку первым треком
+            
                 emptyRow.TrackTitle = dto.TrackTitle;
                 emptyRow.TrackArtist = dto.TrackArtist;
                 emptyRow.ImageUrl = dto.ImageUrl;
             }
             else
             {
-                // Если там уже есть треки, просто добавляем новую строку с дублированием имени плейлиста
+                
                 var newTrackRow = new PlaylistTrack
                 {
                     PlaylistName = dto.PlaylistName,
@@ -563,7 +369,7 @@ namespace backendxd.Controllers
                 return BadRequest(new { message = "Не все поля заполнены" });
             }
 
-            // Ищем именно ту строку, где совпадает ВСЁ: юзер, плейлист, название трека и артист
+   
             var trackRow = await _context.PlaylistsTracks.FirstOrDefaultAsync(p =>
                 p.Username == dto.Username &&
                 p.PlaylistName == dto.PlaylistName &&
@@ -573,20 +379,20 @@ namespace backendxd.Controllers
             if (trackRow == null)
                 return NotFound(new { message = "Такой трек в плейлисте не найден" });
 
-            // Считаем, сколько всего треков/строк у этого плейлиста
+
             var totalRows = await _context.PlaylistsTracks.CountAsync(p =>
                 p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
 
             if (totalRows == 1)
             {
-                // Если трек был последним, затираем данные трека, оставляя пустую заглушку плейлиста
+    
                 trackRow.TrackTitle = null;
                 trackRow.TrackArtist = null;
                 trackRow.ImageUrl = null;
             }
             else
             {
-                // Если есть другие треки, просто удаляем эту строку
+        
                 _context.PlaylistsTracks.Remove(trackRow);
             }
 
@@ -621,7 +427,7 @@ namespace backendxd.Controllers
 
 
 
-    // Вспомогательные DTO для приема JSON-данных
+
     public class CreatePlaylistDto
     {
         public string PlaylistName { get; set; } = string.Empty;
