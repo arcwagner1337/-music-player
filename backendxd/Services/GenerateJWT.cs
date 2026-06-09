@@ -20,7 +20,7 @@ namespace backendxd.Services
         public string GenerateJwtToken(string username)
         {
             var claims = new[] { new Claim(ClaimTypes.Name, username) };
-         
+
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(AppSettings.JwtKey));
 
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

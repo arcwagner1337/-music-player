@@ -1,15 +1,14 @@
 ﻿using MimeKit;
 using MailKit.Net.Smtp;
-using MimeKit;
 using backendxd.Models;
 
 namespace backendxd.Services
 {
-    public class mail
+    public class Mail
     {
         private readonly IConfiguration _config;
 
-        public mail(IConfiguration config)
+        public Mail(IConfiguration config)
         {
             _config = config;
         }
@@ -34,7 +33,7 @@ namespace backendxd.Services
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
         }
-   
+
 
     }
 }

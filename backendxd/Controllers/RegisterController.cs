@@ -20,9 +20,9 @@ namespace backendxd.Controllers
         private readonly AppDbContext _context;
         private readonly IConfiguration _config;
         private readonly GenerateJWT _jwtService;
-        private readonly mail _mailService;
+        private readonly Mail _mailService;
 
-        public RegisterController(AppDbContext context, IConfiguration config, GenerateJWT jwtService, mail mailService)
+        public RegisterController(AppDbContext context, IConfiguration config, GenerateJWT jwtService, Mail mailService)
         {
             _context = context;
             _config = config;
@@ -30,17 +30,17 @@ namespace backendxd.Controllers
             _mailService = mailService;
         }
 
-       
-        [HttpPost("request")] 
+
+        [HttpPost("request")]
         public async Task<IActionResult> RequestRegister([FromBody] RegisterRequest request)
         {
-           
+
             if (await _context.Users.AnyAsync(u => u.Username == request.Username || u.Email == request.Email))
                 return BadRequest(new { error = "USER_ALREADY_EXISTS" });
 
             string code = new Random().Next(100000, 999999).ToString();
 
-          
+
             var old = _context.PendingRegistrations.Where(p => p.email == request.Email);
             _context.PendingRegistrations.RemoveRange(old);
 
@@ -48,7 +48,7 @@ namespace backendxd.Controllers
             {
                 username = request.Username,
                 email = request.Email,
-                password = request.Password, 
+                password = request.Password,
                 code = code,
                 expires_at = DateTime.UtcNow.AddMinutes(15)
             };
@@ -56,7 +56,7 @@ namespace backendxd.Controllers
             _context.PendingRegistrations.Add(pending);
             await _context.SaveChangesAsync();
 
-           
+
 
             await _mailService.SendEmailAsync(request.Email, code);
 
@@ -66,7 +66,7 @@ namespace backendxd.Controllers
         [HttpPost("confirm")]
         public async Task<IActionResult> Confirm([FromBody] VerifyRequest request)
         {
-            
+
             var pending = await _context.PendingRegistrations
                 .FirstOrDefaultAsync(p => p.email == request.email && p.code == request.code);
 
@@ -75,36 +75,36 @@ namespace backendxd.Controllers
                 return BadRequest(new { error = "Invalid or expired code" });
             }
 
-            
+
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                
+
                 var newUser = new User
                 {
                     Username = pending.username,
                     Email = pending.email,
-                    Password = pending.password, 
+                    Password = pending.password,
                     SubStart = 0,
                     SubEnd = 0
                 };
                 _context.Users.Add(newUser);
 
-                
+
                 _context.PendingRegistrations.Remove(pending);
 
                 await _context.SaveChangesAsync();
 
-                
+
                 var token = _jwtService.GenerateJwtToken(newUser.Username);
 
-                
+
                 Response.Cookies.Append("auth_token", token, new CookieOptions
                 {
                     HttpOnly = true,
                     MaxAge = TimeSpan.FromDays(7),
                     SameSite = SameSiteMode.Lax,
-                    Secure = true 
+                    Secure = true
                 });
 
                 await transaction.CommitAsync();

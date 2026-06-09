@@ -15,6 +15,6 @@ namespace backendxd.Data
 
         public DbSet<PlaylistTrack> PlaylistsTracks { get; set; }
 
-     
+
     }
 }
