@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json;
 using System.Threading.Tasks;
 using YoutubeExplode;
 using YoutubeExplode.Common;
@@ -47,36 +46,36 @@ namespace backendxd.Services
                     .Take(3);
 
                 var sortedArtists = uniqueArtists.OrderByDescending(a =>
-                a.GetProperty("name").GetString().Equals(query, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+                (a.GetProperty("name").GetString() ?? string.Empty).Equals(query, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
 
                 foreach (var dzArtist in sortedArtists)
                 {
-                    string artistName = dzArtist.GetProperty("name").GetString();
+                    string artistName = dzArtist.GetProperty("name").GetString() ?? string.Empty;
 
                     artists.Add(new ArtistDto(
                         artistName,
                         "",
-                        dzArtist.GetProperty("picture_xl").GetString(),
+                        dzArtist.GetProperty("picture_xl").GetString() ?? string.Empty,
                         "Биография загружается...",
                         dzArtist.GetProperty("id").GetInt64().ToString()
                     ));
                 }
 
                 var sortedItems = items.OrderByDescending(item =>
-                    item.GetProperty("artist").GetProperty("name").GetString()
-                    .Equals(query, StringComparison.OrdinalIgnoreCase) ? 1 : 0
+                    (item.GetProperty("artist").GetProperty("name").GetString() ?? string.Empty) 
+                    .Equals(query, StringComparison.OrdinalIgnoreCase) ? 1 : 0 
                     );
 
 
                 foreach (var item in sortedItems)
                 {
                     tracks.Add(new TrackDto2(
-                        item.GetProperty("title").GetString(),
-                        item.GetProperty("artist").GetProperty("name").GetString(),
+                        item.GetProperty("title").GetString() ?? string.Empty,
+                        item.GetProperty("artist").GetProperty("name").GetString() ?? string.Empty,
                         "",
-                        item.GetProperty("artist").GetProperty("name").GetString(),
-                        item.GetProperty("title").GetString(),
-                        item.GetProperty("album").GetProperty("cover_big").GetString()
+                        item.GetProperty("artist").GetProperty("name").GetString() ?? string.Empty,
+                        item.GetProperty("title").GetString() ?? string.Empty,
+                        item.GetProperty("album").GetProperty("cover_big").GetString() ?? string.Empty
                     ));
                 }
 
@@ -89,9 +88,9 @@ namespace backendxd.Services
                 {
                     var alb = albGroup.First().GetProperty("album");
                     topAlbums.Add(new AlbumDto(
-                        alb.GetProperty("title").GetString(),
-                        alb.GetProperty("cover_xl").GetString(),
-                        alb.GetProperty("id").GetInt64().ToString(),
+                        alb.GetProperty("title").GetString() ?? string.Empty,
+                        alb.GetProperty("cover_xl").GetString() ?? string.Empty,
+                        alb.GetProperty("id").GetInt64().ToString() ?? string.Empty,
                         "",
                         0
                     ));
@@ -125,17 +124,17 @@ namespace backendxd.Services
             if (response.TryGetProperty("tracks", out var tracksProp))
             {
                 var data = tracksProp.GetProperty("data").EnumerateArray();
-                string artistName = response.GetProperty("artist").GetProperty("name").GetString();
-                string albumCover = response.GetProperty("cover_big").GetString();
+                string artistName = response.GetProperty("artist").GetProperty("name").GetString() ?? string.Empty;
+                string albumCover = response.GetProperty("cover_big").GetString() ?? string.Empty;
 
                 foreach (var item in data)
                 {
                     tracks.Add(new TrackDto2(
-                        item.GetProperty("title").GetString(),
+                        item.GetProperty("title").GetString() ?? string.Empty,
                         artistName,
                         "",
                         artistName,
-                        item.GetProperty("title").GetString(),
+                        item.GetProperty("title").GetString() ?? string.Empty,
                         albumCover
                     ));
                 }
@@ -158,9 +157,9 @@ namespace backendxd.Services
                 foreach (var alb in data.EnumerateArray())
                 {
                     albums.Add(new AlbumDto(
-                        alb.GetProperty("title").GetString(),
-                        alb.GetProperty("cover_xl").GetString(),
-                        alb.GetProperty("id").GetInt64().ToString(),
+                        alb.GetProperty("title").GetString() ?? string.Empty,
+                        alb.GetProperty("cover_xl").GetString() ?? string.Empty,
+                        alb.GetProperty("id").GetInt64().ToString() ?? string.Empty,
                         "",
                         0
                     ));
@@ -197,9 +196,9 @@ namespace backendxd.Services
                 }).FirstOrDefault(v =>
                     v.Duration > TimeSpan.FromMinutes(1) &&
                     v.Duration < TimeSpan.FromMinutes(15) &&
-            
+
                     !stopWords.Any(word => v.Title.Contains(word, StringComparison.OrdinalIgnoreCase)) &&
-            
+
                     (v.Author.ChannelTitle.Contains(artist, StringComparison.OrdinalIgnoreCase) ||
                      v.Title.Contains(artist, StringComparison.OrdinalIgnoreCase))
                 ) ?? searchResult.FirstOrDefault();
@@ -255,15 +254,15 @@ namespace backendxd.Services
 
 
                     if (titleLower.Contains("official audio")) score += 30;
-                    if (titleLower.Contains("official video")) score += 25; 
+                    if (titleLower.Contains("official video")) score += 25;
                     if (titleLower.Contains("remaster")) score += 15;
 
                     if (stopWords.Any(word => titleLower.Contains(word))) score -= 200;
 
- 
+
                     if (titleLower.Contains("/") || titleLower.Contains(" / ")) score -= 150;
 
-   
+
                     double durationMinutes = v.Duration?.TotalMinutes ?? 0;
 
 
@@ -284,7 +283,7 @@ namespace backendxd.Services
                     return new List<string?> { musicUrl, durationStr };
                 }
             }
-            return null;
+            return null!;
         }
 
 
@@ -304,7 +303,7 @@ namespace backendxd.Services
                 videoList.Add(videoResult);
                 count++;
 
-  
+
                 if (count >= 3) break;
             }
 
@@ -323,11 +322,11 @@ namespace backendxd.Services
                     v.Duration < TimeSpan.FromMinutes(15) &&
                     !stopWords.Any(word => v.Title.Contains(word, StringComparison.OrdinalIgnoreCase)) &&
                     (v.Author.ChannelTitle.Contains(artist, StringComparison.OrdinalIgnoreCase) || v.Title.Contains(artist, StringComparison.OrdinalIgnoreCase))
-                ) ?? videoList.FirstOrDefault(); 
+                ) ?? videoList.FirstOrDefault();
 
                 if (video != null)
                 {
-         
+
                     double seconds = video.Duration?.TotalSeconds ?? 0;
 
 
@@ -343,7 +342,7 @@ namespace backendxd.Services
                 }
             }
 
-            return null;
+            return null!;
         }
 
 
@@ -370,12 +369,26 @@ namespace backendxd.Services
             };
 
             using var ytProcess = Process.Start(ytInfo);
-            string directUrl = (await ytProcess.StandardOutput.ReadToEndAsync()).Trim();
 
+            if (ytProcess?.StandardOutput == null)
+            {
+                Console.WriteLine("[ERROR] Не удалось запустить yt-dlp или перенаправить вывод");
+                return string.Empty;
+            }
+
+            
+            string directUrl = (await ytProcess.StandardOutput.ReadToEndAsync()).Trim();
 
             _urlCache[videoUrl] = (directUrl, DateTime.Now.AddHours(2));
 
             return directUrl;
+
+            //string directUrl = (await ytProcess.StandardOutput.ReadToEndAsync()).Trim();
+
+
+            //_urlCache[videoUrl] = (directUrl, DateTime.Now.AddHours(2));
+
+            //return directUrl;
         }
 
         public Process GetFFmpegAudioProcess(string directUrl, int seekSeconds = 0)
@@ -390,7 +403,17 @@ namespace backendxd.Services
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            return Process.Start(ffmpegInfo);
+
+            var process = Process.Start(ffmpegInfo);
+
+            if (process == null)
+            {
+                throw new InvalidOperationException("Не удалось запустить процесс ffmpeg.exe. Проверьте наличие утилиты.");
+            }
+
+            return process;
+
+            //return Process.Start(ffmpegInfo);
         }
 
 
@@ -485,13 +508,13 @@ namespace backendxd.Services
 
                     if (trackList.Count > 0)
                     {
- 
+
                         var selectedBatch = trackList.Take(batchSize).ToList();
 
                         var deezerTasks = selectedBatch.Select(async selected =>
                         {
-                            string nextArtist = selected.GetProperty("artist").GetProperty("name").GetString();
-                            string nextTrack = selected.GetProperty("name").GetString();
+                            string nextArtist = selected.GetProperty("artist").GetProperty("name").GetString() ?? string.Empty;
+                            string nextTrack = selected.GetProperty("name").GetString() ?? string.Empty;
                             string imageUrl = "";
 
                             try
@@ -501,15 +524,15 @@ namespace backendxd.Services
                                 if (dzResponse.TryGetProperty("data", out var data) && data.GetArrayLength() > 0)
                                 {
                                     var firstMatch = data.EnumerateArray().First();
-                                    imageUrl = firstMatch.GetProperty("album").GetProperty("cover_big").GetString();
+                                    imageUrl = firstMatch.GetProperty("album").GetProperty("cover_big").GetString() ?? string.Empty;
                                 }
                             }
-                            catch {  }
+                            catch { }
 
                             return new TrackDto2(nextTrack, nextArtist, "", nextArtist, nextTrack, imageUrl);
                         });
 
-              
+
                         var results = await Task.WhenAll(deezerTasks);
                         return results.ToList();
                     }
@@ -543,7 +566,7 @@ namespace backendxd.Services
 
         private async Task<List<TrackDto2>> FetchAndParseLastFm(string rawUrl, string rootProp, string listProp, List<string> exclude, int batchSize)
         {
-   
+
             string workerUrl2 = AppSettings.WorkerUrl2;
 
             using var client = new HttpClient();
@@ -555,15 +578,16 @@ namespace backendxd.Services
                 if (response.TryGetProperty(rootProp, out var root))
                 {
                     var tracks = root.GetProperty(listProp).EnumerateArray()
-                        .Where(t => {
-                            string art = t.TryGetProperty("artist", out var a) && a.TryGetProperty("name", out var n) ? n.GetString() : "";
-                            string name = t.TryGetProperty("name", out var nm) ? nm.GetString() : "";
+                        .Where(t =>
+                        {
+                            string art = t.TryGetProperty("artist", out var a) && a.TryGetProperty("name", out var n) ? (n.GetString() ?? string.Empty) : "";
+                            string name = t.TryGetProperty("name", out var nm) ? (nm.GetString() ?? string.Empty) : "";
                             return !string.IsNullOrEmpty(art) && !exclude.Contains($"{art.ToLower()} - {name.ToLower()}");
                         })
                         .Take(batchSize);
 
 
-                    return tracks.Select(t => new TrackDto2(t.GetProperty("name").GetString(), t.GetProperty("artist").GetProperty("name").GetString(), "", "", "", "")).ToList();
+                    return tracks.Select(t => new TrackDto2(t.GetProperty("name").GetString() ?? string.Empty, t.GetProperty("artist").GetProperty("name").GetString() ?? string.Empty, "", "", "", "")).ToList();
                 }
             }
             catch { }

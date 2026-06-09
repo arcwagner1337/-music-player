@@ -45,7 +45,7 @@ namespace MusicAppFront.Views.Pages
         {
             string playlistName = PlaylistNameTextBox.Text.Trim();
 
- 
+
             if (string.IsNullOrEmpty(playlistName))
             {
                 MessageBox.Show("Название плейлиста не может быть пустым!", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -66,14 +66,14 @@ namespace MusicAppFront.Views.Pages
 
             try
             {
-            
+
                 var response = await _httpClient.PostAsJsonAsync("api/music/create-playlist", requestBody);
 
                 if (response.IsSuccessStatusCode)
                 {
                     System.Diagnostics.Debug.WriteLine($"Плейлист \"{playlistName}\" успешно создан!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
 
-             
+
                     if (this.NavigationService != null && this.NavigationService.CanGoBack)
                     {
                         this.NavigationService.GoBack();
@@ -81,7 +81,7 @@ namespace MusicAppFront.Views.Pages
                 }
                 else
                 {
-  
+
                     var errorResult = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     string message = errorResult != null && errorResult.ContainsKey("message")
                         ? errorResult["message"]
@@ -92,7 +92,7 @@ namespace MusicAppFront.Views.Pages
             }
             catch (Exception ex)
             {
-   
+
                 MessageBox.Show($"Ошибка подключения к серверу: {ex.Message}", "Ошибка сети", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

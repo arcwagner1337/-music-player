@@ -33,7 +33,7 @@ namespace MusicAppFront.Views.Pages
         public EmailConfirmationPage(string email)
         {
             InitializeComponent();
-            _userEmail = email; 
+            _userEmail = email;
             StartTimer();
         }
         private void StartTimer()
@@ -67,7 +67,7 @@ namespace MusicAppFront.Views.Pages
 
         private async void ResendButton_Click(object sender, RoutedEventArgs e)
         {
-            
+
             StartLoading(true);
             try
             {
@@ -83,12 +83,12 @@ namespace MusicAppFront.Views.Pages
                 StartLoading(false);
             }
 
-            
+
         }
 
         private async void ConfirmCode_Click(object sender, RoutedEventArgs e)
         {
-            
+
             ConfirmErrorTextBlock.Visibility = Visibility.Collapsed;
 
             if (string.IsNullOrWhiteSpace(CodeInput.Text))
@@ -102,12 +102,12 @@ namespace MusicAppFront.Views.Pages
             {
                 var verifyData = new { email = _userEmail, code = CodeInput.Text };
 
-              
+
                 var response = await _client.PostAsJsonAsync("api/register/confirm", verifyData);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    
+
 
                     var data = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     if (data.ContainsKey("token"))
@@ -121,7 +121,7 @@ namespace MusicAppFront.Views.Pages
                 }
                 else
                 {
-                    
+
                     var errorData = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     string errorMsg = errorData?.GetValueOrDefault("error") ?? "Неверный код";
                     ShowConfirmError(GetFriendlyConfirmError(errorMsg));

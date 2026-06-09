@@ -15,7 +15,7 @@ namespace MusicAppFront.Resources
             typeof(PlaylistCommands)
         );
 
-  
+
         public static readonly RoutedUICommand RedirectToCreatePlaylist = new RoutedUICommand(
             "Redirect To Create Playlist",
             "RedirectToCreatePlaylist",

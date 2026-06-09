@@ -14,7 +14,7 @@ namespace MusicAppFront.Models
     {
         public class TrackDto2 : INotifyPropertyChanged
         {
-        
+
             public string Title { get; set; }
             public string Author { get; set; }
             public string Url { get; set; }
@@ -56,7 +56,7 @@ namespace MusicAppFront.Models
                 {
                     _isFavorite = value;
                     OnPropertyChanged("IsFavorite");
-                  
+
                     Task.Run(() => ToggleFavoriteAsync());
                 }
             }

@@ -25,7 +25,7 @@ namespace MusicAppFront.Resources
                 element.AddHandler(
                     ButtonBase.ClickEvent,
                     new RoutedEventHandler(OnElementClick),
-                    handledEventsToo: true 
+                    handledEventsToo: true
                 );
             }
         }

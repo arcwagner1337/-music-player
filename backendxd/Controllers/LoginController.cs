@@ -13,13 +13,13 @@ using LoginRequest = backendxd.DTOS.LoginRequest;
 namespace backendxd.Controllers
 {
     [ApiController]
-    [Route("api/login")] 
+    [Route("api/login")]
     public class LoginController : ControllerBase
     {
         private readonly IConfiguration _config;
         private readonly AppDbContext _context;
         private readonly GenerateJWT _jwtService;
-       
+
 
         public LoginController(IConfiguration config, AppDbContext context, GenerateJWT jwtService)
         {
@@ -28,11 +28,11 @@ namespace backendxd.Controllers
             _jwtService = jwtService;
         }
 
-        [HttpPost] 
+        [HttpPost]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-           
-            
+
+
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Username == request.Username || u.Email == request.Username);
 
@@ -41,19 +41,19 @@ namespace backendxd.Controllers
                 return Unauthorized(new { error = "USER_NOT_FOUND" });
             }
 
-           
+
             if (user.Password != request.Password)
             {
                 return Unauthorized(new { error = "WRONG_PASSWORD" });
             }
 
-           
+
             var token = _jwtService.GenerateJwtToken(user.Username);
 
             Response.Cookies.Append("auth_token", token, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true, 
+                Secure = true,
                 SameSite = SameSiteMode.Lax,
                 MaxAge = TimeSpan.FromDays(7)
             });

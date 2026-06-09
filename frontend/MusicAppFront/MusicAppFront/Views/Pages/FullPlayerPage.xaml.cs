@@ -28,7 +28,7 @@ namespace MusicAppFront.Views.Pages
         private readonly MainWindow _mainWindow;
         private readonly testPlayer.NativePlayer _nativePlayer;
         private readonly SearchResultDto _GlobalResults;
-        private readonly SearchResultDto _GlobalAlbumResults; 
+        private readonly SearchResultDto _GlobalAlbumResults;
 
 
 
@@ -53,23 +53,23 @@ namespace MusicAppFront.Views.Pages
 
                 _nativePlayer._mediaPlayer.TimeChanged += (s, e) =>
                 {
-               
+
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        double currentTime = e.Time / 1000.0; 
+                        double currentTime = e.Time / 1000.0;
 
                         if (_mainWindow != null)
                         {
-                         
+
                             BIG_Slider.Maximum = _mainWindow.TimelineSlider.Maximum;
                         }
 
-                  
+
                         if (!_isDraggingBigSlider && currentTime >= 0)
                         {
                             BIG_Slider.Value = currentTime;
 
-    
+
                             BIG_CurrentTime.Text = $"{_nativePlayer.FormatTime(BIG_Slider.Value)}";
                             BIG_TotalTime.Text = $"{_nativePlayer.FormatTime(BIG_Slider.Maximum)}";
                         }
@@ -144,7 +144,7 @@ namespace MusicAppFront.Views.Pages
             {
                 _nativePlayer.BtnPlay_Click(sender, e, _GlobalAlbumResults);
             }
-            else 
+            else
             {
                 _nativePlayer.BtnPlay_Click(sender, e, _GlobalResults);
             }

@@ -16,13 +16,13 @@ namespace MusicAppFront.ViewModels
         [RelayCommand]
         private void Login()
         {
-            
+
         }
 
         [RelayCommand]
         private void SwitchToRegister()
         {
-            
+
         }
     }
 }

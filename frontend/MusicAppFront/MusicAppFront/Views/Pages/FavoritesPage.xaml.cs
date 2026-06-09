@@ -45,7 +45,7 @@ namespace MusicAppFront.Views.Pages
 
             InitializeComponent();
             this.DataContext = this;
-            
+
             this.Loaded += (s, e) => LoadFavorites();
 
             this.LayoutUpdated += (s, e) =>
@@ -86,15 +86,15 @@ namespace MusicAppFront.Views.Pages
                 {
                     foreach (var trackk in _mainWindow.GlobalAlbumResults.Tracks)
                     {
-         
+
                         bool isMatch = string.Equals(trackk.Title?.Trim(), _nativePlayer._currentlyPlayingTrack.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(trackk.Author?.Trim(), _nativePlayer._currentlyPlayingTrack.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (!isMatch)
                         {
-                         
+
                             trackk.IsPlaying = false;
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -106,19 +106,19 @@ namespace MusicAppFront.Views.Pages
 
                 _nativePlayer._historyStackAlbum.Clear();
                 _nativePlayer._forwardStackAlbum.Clear();
-    
+
             }
 
             var btn = sender as Button;
             var trackData = btn?.DataContext as SearchResultDto.TrackDto2;
 
-            if (trackData == null || btn == null) return; 
-            if (_isDataLoading) return; 
+            if (trackData == null || btn == null) return;
+            if (_isDataLoading) return;
 
             string artist = trackData.Author;
             string track = trackData.Title;
 
-  
+
             var currentPlaying = _nativePlayer._currentlyPlayingTrack;
 
 
@@ -155,7 +155,7 @@ namespace MusicAppFront.Views.Pages
                     _nativePlayer._mediaPlayer.Pause();
                     trackData.IsPlaying = false;
 
-              
+
                     _mainWindow.GlobalPlayPauseBtn.Content = "\uE102"; // Иконка Play
                     _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(2, 0, 0, 0);
                 }
@@ -171,12 +171,12 @@ namespace MusicAppFront.Views.Pages
                 return;
             }
 
-    
+
             try
             {
                 _isDataLoading = true;
 
-         
+
                 if (_lastPlayedTrack != null) _lastPlayedTrack.IsPlaying = false;
                 if (_lastPlayedButton != null) _lastPlayedButton.IsEnabled = true;
 
@@ -197,15 +197,15 @@ namespace MusicAppFront.Views.Pages
                     {
                         Artist = artist,
                         Title = track,
-                        YtUrl = data[0], 
+                        YtUrl = data[0],
                         Duration = duration,
                         IsResolved = false,
-                        ImageUrl = trackData.ImageUrl 
+                        ImageUrl = trackData.ImageUrl
                     };
 
                     _mainWindow.BottomTrackTitle.Text = "Резолв аудио...";
 
-      
+
                     trackToBePlayed.StreamUrl = await _nativePlayer.ResolveAudioUrlAsync(trackToBePlayed.YtUrl);
                     trackToBePlayed.IsResolved = true;
 
@@ -269,7 +269,7 @@ namespace MusicAppFront.Views.Pages
                         new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
                 }
 
-                var tracks = await _client.GetFromJsonAsync<List<FavoriteTrack>>("api/music/listFavorites"); 
+                var tracks = await _client.GetFromJsonAsync<List<FavoriteTrack>>("api/music/listFavorites");
 
                 FavoriteTracks.Clear();
                 foreach (var track in tracks)
@@ -303,8 +303,8 @@ namespace MusicAppFront.Views.Pages
                 Artist = searchTrack.Author,
                 Title = searchTrack.Title,
                 ImageUrl = searchTrack.ImageUrl,
-                YtUrl = null, 
-                Duration = 0, 
+                YtUrl = null,
+                Duration = 0,
                 IsResolved = false
             };
         }

@@ -30,7 +30,8 @@ namespace backendxd.Controllers
         public async Task<string> GetUrl(string artist, string track)
         {
             var ytTrack = await _musicService.SearchOnYouTubeAsync(artist, track);
-            return await _musicService.GetCachedDirectUrlAsync(ytTrack.Url);
+
+            return await _musicService.GetCachedDirectUrlAsync(ytTrack!.Url);
         }
 
 
@@ -38,24 +39,25 @@ namespace backendxd.Controllers
 
         [HttpGet("stream")]
 
-        
+
         public async Task<List<string>> GetStream(string artist, string track)
         {
             var ytTrackdata = await _musicService.SearchOnYouTubeAsync3(artist, track);
             if (ytTrackdata == null) { Response.StatusCode = 404; return [""]; }
 
-            return ytTrackdata;
+            //return ytTrackdata;
+            return ytTrackdata.Where(x => x != null).Cast<string>().ToList();
 
         }
 
 
 
-     
+
 
         [HttpPost("toggle")]
         public async Task<IActionResult> Toggle([FromBody] FavoriteTrackDto req)
         {
-        
+
             var existing = await _context.FavoriteTracks
                 .FirstOrDefaultAsync(f => f.Username == req.UserName
                                        && f.Title == req.Title
@@ -63,18 +65,18 @@ namespace backendxd.Controllers
 
             if (existing != null)
             {
-        
+
                 _context.FavoriteTracks.Remove(existing);
             }
             else
             {
-          
+
                 _context.FavoriteTracks.Add(new FavoriteTrack
                 {
                     Username = req.UserName,
                     Title = req.Title,
                     Author = req.Author,
-                    ImageUrl = req.ImageUrl, 
+                    ImageUrl = req.ImageUrl,
                 });
             }
 
@@ -89,14 +91,14 @@ namespace backendxd.Controllers
         public async Task<IActionResult> getName()
         {
             var username = GetUsername();
-
+            await Task.CompletedTask;
             return Ok(username);
         }
         private string GetUsername() =>
         User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
         ?? User.Identity?.Name ?? "";
 
-        [HttpGet("listFavorites")] 
+        [HttpGet("listFavorites")]
         public async Task<IActionResult> GetFavorites()
         {
             var username = GetUsername();
@@ -112,7 +114,7 @@ namespace backendxd.Controllers
 
 
 
-       
+
 
 
         [HttpPost("GetNextRecommended")]
@@ -120,13 +122,13 @@ namespace backendxd.Controllers
         {
             var excludedList = request.Exclude?.Select(x => x.ToLower()).ToList() ?? new List<string>();
 
-          
-            var recommendedBatch = await _musicService.GetSimilarTracksBatchAsync(request.Artist, request.Track, excludedList, 15);
+
+            var recommendedBatch = await _musicService.GetSimilarTracksBatchAsync(request.Artist ?? "", request.Track ?? "", excludedList, 15);
 
             if (recommendedBatch.Count == 0)
             {
                 Console.WriteLine($"[server] ⚠️ Фолбэк по артисту: {request.Artist}");
-                recommendedBatch = await _musicService.GetTopTracksByArtistBatchAsync(request.Artist, excludedList, 15);
+                recommendedBatch = await _musicService.GetTopTracksByArtistBatchAsync(request.Artist ?? "", excludedList, 15);
             }
 
             if (recommendedBatch.Count == 0)
@@ -137,7 +139,7 @@ namespace backendxd.Controllers
 
             if (recommendedBatch.Count == 0) return NotFound();
 
-      
+
             var youtubeTasks = recommendedBatch.Select(async rec =>
             {
                 try
@@ -155,11 +157,11 @@ namespace backendxd.Controllers
                         };
                     }
                 }
-                catch {  }
+                catch { }
                 return null;
             });
 
-        
+
             var results = await Task.WhenAll(youtubeTasks);
 
 
@@ -175,13 +177,13 @@ namespace backendxd.Controllers
 
         public class GetNextRecommendedRequest
         {
-            public string Artist { get; set; }
-            public string Track { get; set; }
-            public List<string> Exclude { get; set; }
+            public string? Artist { get; set; }
+            public string? Track { get; set; }
+            public List<string>? Exclude { get; set; }
         }
 
 
-       
+
 
         [HttpGet("search")]
         public async Task<ActionResult<object>> Search([FromQuery] string query)
@@ -248,7 +250,7 @@ namespace backendxd.Controllers
                 return BadRequest(new { message = "Название плейлиста и имя пользователя обязательны" });
             }
 
-  
+
             bool exists = await _context.PlaylistsTracks.AnyAsync(p =>
                 p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
 
@@ -261,7 +263,7 @@ namespace backendxd.Controllers
             {
                 PlaylistName = dto.PlaylistName,
                 Username = dto.Username,
-                TrackTitle = null,  
+                TrackTitle = null,
                 TrackArtist = null,
                 ImageUrl = null
             };
@@ -272,11 +274,11 @@ namespace backendxd.Controllers
             return Ok(new { message = "Плейлист успешно создан!" });
         }
 
-   
+
         [HttpPost("add-track-to-playlist")]
         public async Task<IActionResult> AddTrackToPlaylist([FromBody] AddTrackDto dto)
         {
-    
+
             var playlistExists = await _context.PlaylistsTracks.AnyAsync(p =>
                 p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
 
@@ -293,14 +295,14 @@ namespace backendxd.Controllers
 
             if (emptyRow != null)
             {
-            
+
                 emptyRow.TrackTitle = dto.TrackTitle;
                 emptyRow.TrackArtist = dto.TrackArtist;
                 emptyRow.ImageUrl = dto.ImageUrl;
             }
             else
             {
-                
+
                 var newTrackRow = new PlaylistTrack
                 {
                     PlaylistName = dto.PlaylistName,
@@ -369,7 +371,7 @@ namespace backendxd.Controllers
                 return BadRequest(new { message = "Не все поля заполнены" });
             }
 
-   
+
             var trackRow = await _context.PlaylistsTracks.FirstOrDefaultAsync(p =>
                 p.Username == dto.Username &&
                 p.PlaylistName == dto.PlaylistName &&
@@ -385,14 +387,14 @@ namespace backendxd.Controllers
 
             if (totalRows == 1)
             {
-    
+
                 trackRow.TrackTitle = null;
                 trackRow.TrackArtist = null;
                 trackRow.ImageUrl = null;
             }
             else
             {
-        
+
                 _context.PlaylistsTracks.Remove(trackRow);
             }
 

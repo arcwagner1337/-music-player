@@ -29,8 +29,8 @@ namespace MusicAppFront.Views.Windows
 {
     public partial class MainWindow : Window
     {
-        
-       
+
+
         public static string _currentUserName = "";
 
         private HomePage _homePage;
@@ -38,7 +38,7 @@ namespace MusicAppFront.Views.Windows
         private FavoritesPage _favoritesPage;
         private PlaylistsPage _playlistsPage;
         private MaxFlowPage _maxFlowPage;
- 
+
 
         private testPlayer.NativePlayer _nativePlayer;
 
@@ -48,7 +48,7 @@ namespace MusicAppFront.Views.Windows
         public SearchResultDto GlobalAlbumResults = new SearchResultDto();
         public ObservableCollection<testPlayer.NativePlayer.TrackWithStreamDto> HistoryList = new ObservableCollection<testPlayer.NativePlayer.TrackWithStreamDto>();
         public ObservableCollection<string> UserPlaylists { get; set; } = new ObservableCollection<string>();
-        private MusicAppFront.Views.Pages.FullPlayerPage _singleFullPlayerPage;
+        private MusicAppFront.Views.Pages.FullPlayerPage? _singleFullPlayerPage;
 
         public bool isAlbumOpenAndActive = false;
 
@@ -63,18 +63,18 @@ namespace MusicAppFront.Views.Windows
             public string ImageUrl { get; set; } = string.Empty;
 
         }
-        public static MainWindow Instance { get; private set; }
+        public static MainWindow? Instance { get; private set; }
 
         public void InitPlaylistCommandBindings()
         {
-       
+
             CommandBindings.Add(new CommandBinding(PlaylistCommands.AddTrackToPlaylist, ExecuteAddTrackToPlaylist));
-   
+
             CommandBindings.Add(new CommandBinding(PlaylistCommands.RedirectToCreatePlaylist, ExecuteRedirectToCreatePlaylist));
 
             CommandBindings.Add(new CommandBinding(PlaylistCommands.OpenPlaylist, ExecuteOpenPlaylist));
 
-    
+
             _ = RefreshUserPlaylistsAsync();
         }
 
@@ -89,31 +89,31 @@ namespace MusicAppFront.Views.Windows
                     await Task.Delay(100);
                 }
 
-   
+
                 var requestBody = new { username = _currentUserName };
 
-         
+
                 var response = await _client.PostAsJsonAsync("api/music/user-all-playLists", requestBody);
 
                 if (response.IsSuccessStatusCode)
                 {
-       
+
                     using (var jsonDoc = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonDocument>())
                     {
                         if (jsonDoc != null)
                         {
                             UserPlaylists.Clear();
 
-                   
+
                             if (jsonDoc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
                             {
                                 foreach (var item in jsonDoc.RootElement.EnumerateArray())
                                 {
-             
+
                                     if (item.TryGetProperty("playlistName", out var nameProp) ||
                                         item.TryGetProperty("name", out nameProp))
                                     {
-                                        string pName = nameProp.GetString();
+                                        string pName = nameProp.GetString() ?? string.Empty;
                                         if (!string.IsNullOrEmpty(pName))
                                         {
                                             UserPlaylists.Add(pName);
@@ -126,7 +126,7 @@ namespace MusicAppFront.Views.Windows
                             {
                                 foreach (var item in jsonDoc.RootElement.EnumerateArray())
                                 {
-                                    UserPlaylists.Add(item.GetString());
+                                    UserPlaylists.Add(item.GetString()!);
                                 }
                             }
                         }
@@ -153,13 +153,13 @@ namespace MusicAppFront.Views.Windows
 
             if (e.Parameter is object[] values && values.Length >= 2)
             {
-     
-                string targetPlaylistName = values[0] as string;
+
+                string targetPlaylistName = (values[0] as string) ?? string.Empty;
 
 
                 var track = values[1] as SearchResultDto.TrackDto2;
 
-         
+
                 MessageBox.Show($"Клик сработал!\nПлейлист: {targetPlaylistName}\nТрек: {track?.Title ?? "НЕ НАЙДЕН"}");
 
                 if (track != null && !string.IsNullOrEmpty(targetPlaylistName))
@@ -209,20 +209,20 @@ namespace MusicAppFront.Views.Windows
         {
             e.Handled = true;
 
-  
-            string playlistName = e.Parameter as string;
+
+            string playlistName = (e.Parameter as string) ?? string.Empty;
 
             if (!string.IsNullOrEmpty(playlistName))
             {
                 var fakeAlbum = new SearchResultDto.AlbumDto(
-                    playlistName,                                       
-                    "pack://application:,,,/Resources/default_playlist.png", 
-                    playlistName,                            
-                    null,                                              
-                    null                                                  
+                    playlistName,
+                    "pack://application:,,,/Resources/default_playlist.png",
+                    playlistName,
+                    "",
+                    null
                 );
 
-                MessageBox.Show($"Открываем плейлист: {playlistName}"); 
+                MessageBox.Show($"Открываем плейлист: {playlistName}");
             }
         }
 
@@ -234,7 +234,7 @@ namespace MusicAppFront.Views.Windows
             InitPlaylistCommandBindings();
             _client = new HttpClient();
 
-            _client.BaseAddress = new Uri(App.Settings.BaseAddress);
+            _client.BaseAddress = new Uri(App.Settings?.BaseAddress ?? "");
 
 
 
@@ -257,7 +257,7 @@ namespace MusicAppFront.Views.Windows
 
             var loadedList = _nativePlayer.GetHistory();
 
-            
+
             foreach (var track in loadedList)
             {
                 HistoryList.Add(track);
@@ -269,8 +269,8 @@ namespace MusicAppFront.Views.Windows
                 Console.WriteLine("прогрев сервулятора");
                 try
                 {
-     
-                    await _client.GetAsync(App.Settings.DlpServerUrlUnlog1);
+
+                    await _client.GetAsync(App.Settings?.DlpServerUrlUnlog1); 
 
                     Console.WriteLine("сервулятор прогрет)");
                 }
@@ -284,10 +284,10 @@ namespace MusicAppFront.Views.Windows
                 {
                     try
                     {
-           
+
                         await Task.Delay(50);
 
-           
+
 
                         if (isAlbumOpenAndActive) { await _nativePlayer.PlayNextAlbumTrackAsync(GlobalAlbumResults); }
                         else { await _nativePlayer.PlayNextTrackAsync(GlobalResults); }
@@ -305,7 +305,7 @@ namespace MusicAppFront.Views.Windows
             {
                 Dispatcher.InvokeAsync(() =>
                 {
-                    double currentTime = e.Time / 1000.0; 
+                    double currentTime = e.Time / 1000.0;
 
                     if (!_nativePlayer._isDragging && currentTime >= 0 && currentTime <= TimelineSlider.Maximum)
                     {
@@ -319,15 +319,15 @@ namespace MusicAppFront.Views.Windows
 
         }
 
-        private async void BtnTest_Click(object sender, RoutedEventArgs e)
+        private void BtnTest_Click(object sender, RoutedEventArgs e)
         {
 
-           
+
 
         }
 
 
-        private async void GlobalPlayPauseBtn_Click(object sender, RoutedEventArgs e)
+        private void GlobalPlayPauseBtn_Click(object sender, RoutedEventArgs e)
         {
 
             if (isAlbumOpenAndActive)
@@ -386,7 +386,7 @@ namespace MusicAppFront.Views.Windows
             _nativePlayer.TimelineSlider_DragStarted(sender, e);
         }
 
-        private async void TimelineSlider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+        private void TimelineSlider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
         {
             _nativePlayer.TimelineSlider_DragCompleted(sender, e);
         }
@@ -405,7 +405,7 @@ namespace MusicAppFront.Views.Windows
 
 
 
-        private async void BtnNext_Click(object sender, RoutedEventArgs e)
+        private void BtnNext_Click(object sender, RoutedEventArgs e)
         {
 
         }
@@ -445,7 +445,7 @@ namespace MusicAppFront.Views.Windows
             var element = e.OriginalSource as FrameworkElement;
             while (element != null)
             {
-            
+
                 if (element is ContentControl cc)
                 {
                     if (cc.Style == (Style)FindResource("PlaylistCardStyle"))
@@ -453,26 +453,26 @@ namespace MusicAppFront.Views.Windows
 
                         if (cc.DataContext is AlbumDto album)
                         {
-                  
+
                             MainFrame.Navigate(new InfoPlaylistPage(album, this, _nativePlayer));
                         }
                         else if (cc.DataContext is string playlistName)
                         {
-                        
+
                             var fakeAlbum = new SearchResultDto.AlbumDto(
-                                playlistName,                                      
-                                "pack://application:,,,/Resources/default_playlist.png",  
-                                "local_" + playlistName,                                 
-                                null,                                                   
-                                null                                                  
+                                playlistName,
+                                "pack://application:,,,/Resources/default_playlist.png",
+                                "local_" + playlistName,
+                                "",
+                                null
                             );
 
-                          
+
                             MainFrame.Navigate(new InfoPlaylistPage(fakeAlbum, this, _nativePlayer));
                         }
                         else
                         {
-                      
+
                             MainFrame.Navigate(new InfoPlaylistPage(null, this, _nativePlayer));
                         }
 
@@ -498,7 +498,7 @@ namespace MusicAppFront.Views.Windows
             {
                 try
                 {
-                   
+
                     var results = await _client.GetFromJsonAsync<SearchResultDto>(
                         $"api/music/search?query={Uri.EscapeDataString(SearchBox.Text)}"
                     );
@@ -534,35 +534,37 @@ namespace MusicAppFront.Views.Windows
                         {
                             System.Diagnostics.Debug.WriteLine(":GlobalResults " + res.Title);
                         }
-                   
+
                         var currentPlaying = _nativePlayer?._currentlyPlayingTrack;
                         if (currentPlaying != null && results.Tracks != null)
                         {
                             foreach (var track in results.Tracks)
                             {
-                         
+
                                 bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                             && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                                 if (isMatch)
                                 {
-                                
-                                    track.IsPlaying = _nativePlayer._mediaPlayer.IsPlaying;
-                                    break; 
+                                    if (_nativePlayer != null)
+                                    {
+                                        track.IsPlaying = _nativePlayer._mediaPlayer.IsPlaying;
+                                    }
+                                    break;
                                 }
                             }
                         }
 
-                    
-                        var searchPage = new SearchPage(results, this, _nativePlayer);
 
-       
+                        var searchPage = new SearchPage(results, this, _nativePlayer!);
+
+
                         if (results.Tracks != null)
                         {
-                            searchPage._lastPlayedTrack = results.Tracks.FirstOrDefault(t => t.IsPlaying);
+                            searchPage._lastPlayedTrack = results.Tracks.FirstOrDefault(t => t.IsPlaying)!;
                         }
 
-             
+
                         MainFrame.Navigate(searchPage);
                     }
                 }
@@ -596,7 +598,7 @@ namespace MusicAppFront.Views.Windows
 
 
 
-     
+
                 if (MainFrame.CanGoBack)
                 {
                     MainFrame.GoBack();
@@ -627,12 +629,12 @@ namespace MusicAppFront.Views.Windows
 
                 if (response.IsSuccessStatusCode)
                 {
-      
+
                     using (var jsonDoc = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonDocument>())
                     {
                         if (jsonDoc != null && jsonDoc.RootElement.TryGetProperty("username", out var usernameRoot))
                         {
-                            string username = usernameRoot.GetString();
+                            string username = usernameRoot.GetString() ?? string.Empty;
                             if (!string.IsNullOrWhiteSpace(username))
                             {
                                 _currentUserName = username;

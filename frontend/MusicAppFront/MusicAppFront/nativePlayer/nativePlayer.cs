@@ -70,7 +70,7 @@ namespace testPlayer
 
 
 
-    
+
         private ConcurrentQueue<TrackWithStreamDto> _playbackQueue = new ConcurrentQueue<TrackWithStreamDto>();
         public ConcurrentQueue<TrackWithStreamDto> _playbackAlbumQueue = new ConcurrentQueue<TrackWithStreamDto>();
 
@@ -87,10 +87,10 @@ namespace testPlayer
 
         public TrackWithStreamDto _currentlyPlayingTrack;
 
-  
+
         private CancellationTokenSource _preloadCts;
 
-     
+
         public class TrackWithStreamDto
         {
             public string Title { get; set; }
@@ -114,7 +114,7 @@ namespace testPlayer
             public string CleanArtist { get; set; }
             public string CleanTitle { get; set; }
 
-       
+
             public TrackDto2() { }
 
             public TrackDto2(string title, string artist, string url, string cleanArtist, string cleanTitle, string coverImageUrl)
@@ -135,7 +135,7 @@ namespace testPlayer
 
 
 
-        
+
 
         private readonly string[] _fastServers =
         {
@@ -143,7 +143,7 @@ namespace testPlayer
             App.Settings.DlpServerUrlUnlog2
         };
 
-      
+
 
         private readonly string[] _fallbackServers =
             {
@@ -184,14 +184,14 @@ namespace testPlayer
         {
             lock (_serverLock)
             {
-         
+
                 if (attempt < _fastServers.Length)
                 {
                     var server = _fastServers[_fastIndex % _fastServers.Length];
                     _fastIndex++;
                     return server;
                 }
-                else 
+                else
                 {
                     var server = _fallbackServers[_fallbackIndex % _fallbackServers.Length];
                     _fallbackIndex++;
@@ -206,12 +206,12 @@ namespace testPlayer
 
             try
             {
-                
-                
+
+
                 string json = await File.ReadAllTextAsync(HistoryFile);
-               
+
                 history = JsonConvert.DeserializeObject<List<TrackWithStreamDto>>(json) ?? new List<TrackWithStreamDto>();
-           
+
 
                 history.RemoveAll(t => t.YtUrl == newTrack.YtUrl);
                 history.Insert(0, newTrack);
@@ -221,10 +221,10 @@ namespace testPlayer
                     history = history.Take(MaxTracks).ToList();
                 }
 
-             
+
                 string newJson = JsonConvert.SerializeObject(history, Formatting.Indented);
 
-             
+
                 await File.WriteAllTextAsync(HistoryFile, newJson);
                 System.Diagnostics.Debug.WriteLine($"История сохранена в: {HistoryFile}");
             }
@@ -263,10 +263,10 @@ namespace testPlayer
                     string currentTrackId = $"{currentArtist.ToLower()} - {currentTrack.ToLower()}";
                     if (!_globalHistory.Contains(currentTrackId)) _globalHistory.Add(currentTrackId);
 
-          
+
                     var excludeList = _globalHistory.Skip(Math.Max(0, _globalHistory.Count - 40)).ToList();
 
-         
+
                     if (_mainWindow?.GlobalAlbumResults?.Tracks != null)
                     {
                         foreach (var searchTrack in _mainWindow.GlobalAlbumResults.Tracks)
@@ -351,7 +351,7 @@ namespace testPlayer
                 {
                     System.Diagnostics.Debug.WriteLine($"[preload album] ошибка: {ex.Message}");
 
-         
+
                     await Task.Delay(1000, token);
                 }
             }
@@ -397,7 +397,7 @@ namespace testPlayer
                     {
                         artist = currentArtist,
                         track = currentTrack,
-                        exclude = excludeList 
+                        exclude = excludeList
                     };
 
                     var content = new StringContent(
@@ -464,7 +464,7 @@ namespace testPlayer
                 {
                     System.Diagnostics.Debug.WriteLine($"[preload] ошибка: {ex.Message}");
 
-      
+
                     await Task.Delay(1000, token);
                 }
             }
@@ -497,13 +497,13 @@ namespace testPlayer
 
                 if (FullPlayerPage != null)
                 {
-            
+
                     FullPlayerPage.BIG_TrackTitle.Text = track.Title;
                     FullPlayerPage.BIG_Author.Text = track.Artist;
 
 
 
-    
+
                     FullPlayerPage.BIG_GlobalPlayPauseBtn.Content = "\uE103";
                     FullPlayerPage.BIG_GlobalPlayPauseBtn.Padding = new Thickness(0);
 
@@ -527,7 +527,7 @@ namespace testPlayer
                 }
                 else
                 {
-              
+
                     _mainWindow.BottomTrackImage.Visibility = System.Windows.Visibility.Collapsed;
 
                 }
@@ -538,7 +538,7 @@ namespace testPlayer
             _preloadCts?.Cancel();
             _preloadCts = new CancellationTokenSource();
 
-            if (clearForward) 
+            if (clearForward)
             {
                 while (_playbackQueue.TryDequeue(out _)) { }
             }
@@ -565,17 +565,17 @@ namespace testPlayer
             if (_playbackAlbumQueue.Count < 30)
                 _ = PreloadRecommendationForAlbumsAsync(forwardTracks.Last().Artist, forwardTracks.Last().Title, _preloadCts.Token);
 
- 
+
             foreach (var track in forwardTracks.Concat(historyTracks))
             {
-              
 
-              
+
+
                 if ((track.IsResolved || track.IsResolvingProcess) && !string.IsNullOrEmpty(track.StreamUrl)) continue;
                 track.IsResolvingProcess = true;
                 try
                 {
-                  
+
                     if (string.IsNullOrEmpty(track.YtUrl))
                     {
 
@@ -593,7 +593,7 @@ namespace testPlayer
                         }
                     }
 
-  
+
                     if (!string.IsNullOrEmpty(track.YtUrl))
                     {
 
@@ -634,7 +634,7 @@ namespace testPlayer
 
             _currentlyPlayingTrack = track;
 
-   
+
             await _mainWindow.Dispatcher.InvokeAsync(() =>
             {
                 _mainWindow.BottomTrackTitle.Text = $"{track.Artist} - {track.Title}";
@@ -646,14 +646,14 @@ namespace testPlayer
 
                 if (FullPlayerPage != null)
                 {
-        
+
                     FullPlayerPage.BIG_TrackTitle.Text = track.Title;
                     FullPlayerPage.BIG_Author.Text = track.Artist;
 
                     FullPlayerPage.BIG_GlobalPlayPauseBtn.Content = "\uE103";
                     FullPlayerPage.BIG_GlobalPlayPauseBtn.Padding = new Thickness(0);
 
-        
+
                     if (!string.IsNullOrEmpty(track.ImageUrl))
                     {
                         FullPlayerPage.BIG_TrackImage.Visibility = System.Windows.Visibility.Visible;
@@ -674,7 +674,7 @@ namespace testPlayer
                 }
                 else
                 {
-  
+
                     _mainWindow.BottomTrackImage.Visibility = System.Windows.Visibility.Collapsed;
 
                 }
@@ -728,7 +728,7 @@ namespace testPlayer
 
             for (int attempt = 0; attempt < totalServers; attempt++)
             {
-    
+
                 string server = GetServerForAttempt(attempt);
                 try
                 {
@@ -771,12 +771,12 @@ namespace testPlayer
             {
                 try
                 {
-              
+
                     _libVlc.Log -= VlcNativeLogHandler;
                 }
                 catch { }
 
-          
+
                 _libVlc.Log += VlcNativeLogHandler;
                 System.Diagnostics.Debug.WriteLine("[vlc] Логирование LibVLC успешно активировано.");
             }
@@ -785,7 +785,7 @@ namespace testPlayer
                 System.Diagnostics.Debug.WriteLine("[vlc] КРИТИЧЕСКАЯ ОШИБКА: _libVlc равен null даже в момент воспроизведения!");
             }
 
-   
+
             string insecureUrl = audioUrl.Replace("https://", "http://");
 
             System.Diagnostics.Debug.WriteLine($"[vlc] обычный ссылк: {audioUrl}");
@@ -800,7 +800,7 @@ namespace testPlayer
 
             using (var media = new Media(_libVlc, insecureUrl, FromType.FromLocation))
             {
-      
+
                 media.AddOption("http-forward-cookies=0");
                 media.AddOption("http-continuous");
 
@@ -875,15 +875,15 @@ namespace testPlayer
                 {
                     foreach (var track in results.Tracks)
                     {
-     
+
                         bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                     
+
                             track.IsPlaying = false;
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -912,15 +912,15 @@ namespace testPlayer
                 {
                     foreach (var track in results.Tracks)
                     {
-               
+
                         bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                          
+
                             track.IsPlaying = true;
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -955,7 +955,7 @@ namespace testPlayer
         {
             if (_historyStackAlbum.Count == 0)
             {
-             
+
                 return;
             }
 
@@ -966,7 +966,7 @@ namespace testPlayer
                 if (_currentlyPlayingTrack != null)
                     _forwardStackAlbum.Push(_currentlyPlayingTrack);
 
-   
+
                 var previousTrack = _historyStackAlbum.Pop();
 
 
@@ -976,13 +976,13 @@ namespace testPlayer
                 {
                     foreach (var track in results.Tracks)
                     {
-          
+
                         bool isMatch = string.Equals(track.Title?.Trim(), previousTrack.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), previousTrack.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                          
+
                             track.IsPlaying = true;
                             break;
                         }
@@ -990,16 +990,16 @@ namespace testPlayer
 
                     foreach (var track in results.Tracks)
                     {
-                    
+
                         bool isMatch = string.Equals(track.Title?.Trim(), _currentlyPlayingTrack.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), _currentlyPlayingTrack.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                         
+
                             track.IsPlaying = false;
 
-                            break; 
+                            break;
                         }
                     }
 
@@ -1016,7 +1016,7 @@ namespace testPlayer
             }
             finally
             {
-             
+
             }
         }
 
@@ -1025,7 +1025,7 @@ namespace testPlayer
         {
             if (_historyStack.Count == 0)
             {
-         
+
                 return;
             }
 
@@ -1033,24 +1033,24 @@ namespace testPlayer
             {
                 //BtnPrev.IsEnabled = false;
 
-          
+
                 if (_currentlyPlayingTrack != null)
                     _forwardStack.Push(_currentlyPlayingTrack);
 
-      
+
                 var previousTrack = _historyStack.Pop();
 
                 if (previousTrack != null && results.Tracks != null)
                 {
                     foreach (var track in results.Tracks)
                     {
-             
+
                         bool isMatch = string.Equals(track.Title?.Trim(), previousTrack.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), previousTrack.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                           
+
                             track.IsPlaying = true;
                             break;
                         }
@@ -1058,7 +1058,7 @@ namespace testPlayer
                 }
 
 
-      
+
                 await PlayTrack(previousTrack, addToHistory: false, clearForward: false);
             }
             catch (Exception ex)
@@ -1067,7 +1067,7 @@ namespace testPlayer
             }
             finally
             {
-             
+
             }
         }
 
@@ -1092,15 +1092,15 @@ namespace testPlayer
                 {
                     foreach (var track in results.Tracks)
                     {
-                    
+
                         bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                     && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                         if (isMatch)
                         {
-                            
+
                             track.IsPlaying = false;
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -1114,15 +1114,15 @@ namespace testPlayer
                     {
                         foreach (var track in results.Tracks)
                         {
-                          
+
                             bool isMatch = string.Equals(track.Title?.Trim(), nextFromHistory.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                         && string.Equals(track.Author?.Trim(), nextFromHistory.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                             if (isMatch)
                             {
-                               
+
                                 track.IsPlaying = true;
-                                break; 
+                                break;
                             }
 
                         }
@@ -1177,7 +1177,7 @@ namespace testPlayer
                     }
                     _mediaPlayer.Stop();
 
-                    var cts = new CancellationTokenSource(30000); 
+                    var cts = new CancellationTokenSource(30000);
                     while (_playbackQueue.Count == 0 && !cts.Token.IsCancellationRequested)
                         await Task.Delay(200);
 
@@ -1245,15 +1245,15 @@ namespace testPlayer
             {
                 foreach (var track in results.Tracks)
                 {
-                 
+
                     bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                 && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                     if (isMatch)
                     {
-                      
+
                         track.IsPlaying = false;
-                        break; 
+                        break;
                     }
                 }
             }
@@ -1303,13 +1303,13 @@ namespace testPlayer
                     {
                         foreach (var track in results.Tracks)
                         {
-                            
+
                             bool isMatch = string.Equals(track.Title?.Trim(), nextFromHistory.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                         && string.Equals(track.Author?.Trim(), nextFromHistory.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                             if (isMatch)
                             {
-                                
+
                                 track.IsPlaying = true;
                                 break;
                             }
@@ -1345,7 +1345,7 @@ namespace testPlayer
                     {
                         //TxtStatus.Text = "buffering...";
                         var cts = new CancellationTokenSource(10000);
-                        while (!next.IsResolved && !cts.Token.IsCancellationRequested) 
+                        while (!next.IsResolved && !cts.Token.IsCancellationRequested)
                         {
                             await Task.Delay(200);
                         }
@@ -1365,7 +1365,7 @@ namespace testPlayer
                     }
                     _mediaPlayer.Stop();
                     PlayerStatusChanged?.Invoke(false);
-                    var cts = new CancellationTokenSource(30000); 
+                    var cts = new CancellationTokenSource(30000);
                     while (_playbackQueue.Count == 0 && !cts.Token.IsCancellationRequested)
                         await Task.Delay(200);
 
@@ -1437,21 +1437,21 @@ namespace testPlayer
             {
                 foreach (var track in results.Tracks)
                 {
-                 
+
                     bool isMatch = string.Equals(track.Title?.Trim(), currentPlaying.Title?.Trim(), StringComparison.OrdinalIgnoreCase)
                                 && string.Equals(track.Author?.Trim(), currentPlaying.Artist?.Trim(), StringComparison.OrdinalIgnoreCase);
 
                     if (isMatch)
                     {
-                       
+
                         track.IsPlaying = false;
-                        break; 
+                        break;
                     }
                 }
             }
             try
             {
-               
+
                 await PlayNextTrackAsync(results);
             }
             catch (Exception ex)
@@ -1460,7 +1460,7 @@ namespace testPlayer
             }
             finally
             {
-           
+
             }
         }
 
@@ -1468,10 +1468,10 @@ namespace testPlayer
 
         public void TimelineSlider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
         {
-           
+
             _isDragging = true;
 
-           
+
             if (FullPlayerPage != null)
             {
                 FullPlayerPage._isDraggingBigSlider = true;
@@ -1483,11 +1483,11 @@ namespace testPlayer
             var slider = sender as System.Windows.Controls.Slider;
             if (slider != null)
             {
-                
+
                 _mediaPlayer.Time = (long)(slider.Value * 1000);
             }
 
-          
+
             _isDragging = false;
             if (FullPlayerPage != null)
             {
@@ -1505,16 +1505,16 @@ namespace testPlayer
 
             var slider = (System.Windows.Controls.Slider)sender;
 
-      
+
             System.Windows.Point clickPoint = e.GetPosition(slider);
 
-     
+
             double relativePosition = clickPoint.X / slider.ActualWidth;
 
 
             relativePosition = Math.Max(0.0, Math.Min(1.0, relativePosition));
 
-      
+
             double newValue = slider.Minimum + (relativePosition * (slider.Maximum - slider.Minimum));
 
             _isDragging = true;
@@ -1530,13 +1530,13 @@ namespace testPlayer
                 FullPlayerPage._isDraggingBigSlider = false;
             }
 
-  
+
             _isDragging = false;
         }
 
 
 
-       
+
 
 
 

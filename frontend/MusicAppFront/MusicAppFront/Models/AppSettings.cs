@@ -9,7 +9,7 @@ namespace MusicAppFront.Models
     public class AppSettings
     {
 
-        
+
         public string DlpServerUrlLog1 { get; set; } = string.Empty;
         public string DlpServerUrlLog2 { get; set; } = string.Empty;
 

@@ -15,7 +15,7 @@ namespace MusicAppFront
 
     public partial class App : Application
     {
-        public static AppSettings Settings { get; private set; }
+        public static AppSettings? Settings { get; private set; }
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -32,10 +32,10 @@ namespace MusicAppFront
 
                 try
                 {
-                    
+
                     DotNetEnv.Env.Load(envPath);
 
-                    
+
                     Settings = new AppSettings
                     {
                         DlpServerUrlLog1 = Environment.GetEnvironmentVariable("DLP_SERVER_LOG1_URL")
@@ -56,7 +56,7 @@ namespace MusicAppFront
                 }
                 catch (Exception ex)
                 {
-                    
+
                     MessageBox.Show($"Критическая ошибка конфигурации: {ex.Message}", "Ошибка запуска", MessageBoxButton.OK, MessageBoxImage.Error);
                     Shutdown();
                     return;

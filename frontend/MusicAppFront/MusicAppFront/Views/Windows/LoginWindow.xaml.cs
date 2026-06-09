@@ -26,19 +26,19 @@ namespace MusicAppFront.Views.Windows
 
             if (!string.IsNullOrEmpty(token))
             {
-          
+
                 var mainWindow = new MainWindow();
                 mainWindow.Show();
 
-        
+
                 this.Close();
             }
             else
             {
-                
+
                 AuthFrame.Navigate(new LoginPage());
             }
-            
+
         }
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {

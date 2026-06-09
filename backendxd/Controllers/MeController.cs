@@ -22,7 +22,7 @@ namespace backendxd.Controllers
         [HttpGet("me")]
         public async Task<IActionResult> GetMe()
         {
-       
+
             var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
                ?? User.FindFirst("name")?.Value
                ?? User.Identity?.Name;
@@ -34,7 +34,8 @@ namespace backendxd.Controllers
 
 
             var user = await _context.Users
-                .Select(u => new { 
+                .Select(u => new
+                {
                     u.Id,
                     u.Username,
                     u.Email

@@ -17,7 +17,7 @@ namespace MusicAppFront.AuthStorage
 
         public static void SaveToken(string token)
         {
-       
+
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(StoragePath));
 
 

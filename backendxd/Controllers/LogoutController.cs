@@ -9,12 +9,12 @@ namespace backendxd.Controllers
         [HttpPost]
         public IActionResult Logout()
         {
-         
+
             Response.Cookies.Delete("auth_token", new CookieOptions
             {
                 HttpOnly = true,
                 Path = "/",
-                Secure = true, 
+                Secure = true,
                 SameSite = SameSiteMode.Lax
             });
 

@@ -56,7 +56,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(AppSettings.DbConString));
 
 builder.Services.AddScoped<GenerateJWT>();
-builder.Services.AddScoped<mail>();
+builder.Services.AddScoped<Mail>();
 
 builder.Services.AddScoped<MusicService2>();
 builder.Services.AddMemoryCache();
@@ -104,13 +104,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnAuthenticationFailed = context =>
             {
-          
+
                 Console.WriteLine($"[AUTH ERROR]: {context.Exception.Message}");
                 return Task.CompletedTask;
             },
             OnMessageReceived = context =>
             {
-           
+
                 var token = context.Request.Headers["Authorization"].ToString();
                 Console.WriteLine($"[AUTH] Received header: {token}");
                 return Task.CompletedTask;

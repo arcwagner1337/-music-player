@@ -6,7 +6,7 @@ namespace backendxd.Models
     [Table("users")]
     public class User
     {
-        [Key] 
+        [Key]
         [Column("id")]
         public int Id { get; set; }
 
@@ -75,7 +75,7 @@ namespace backendxd.Models
         public string Username { get; set; } = string.Empty;
 
         [Column("track_title")]
-        public string? TrackTitle { get; set; } 
+        public string? TrackTitle { get; set; }
 
         [Column("track_artist")]
         public string? TrackArtist { get; set; }
