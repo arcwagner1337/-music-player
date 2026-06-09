@@ -31,7 +31,7 @@ namespace MusicAppFront.Views.Pages
             UseCookies = true
         })
         {
-  
+
             BaseAddress = new Uri(App.Settings.BaseAddress),
 
 
@@ -44,12 +44,12 @@ namespace MusicAppFront.Views.Pages
 
         private async void CreateAccount_Click(object sender, RoutedEventArgs e)
         {
-      
+
 
             RegErrorTextBlock.Visibility = Visibility.Collapsed;
 
             if (string.IsNullOrWhiteSpace(RegUsernameInput.Text) ||
-            string.IsNullOrWhiteSpace(RegPasswordInput.Password)|| string.IsNullOrWhiteSpace(RegEmailInput.Text))
+            string.IsNullOrWhiteSpace(RegPasswordInput.Password) || string.IsNullOrWhiteSpace(RegEmailInput.Text))
             {
                 ShowRegError("Заполни все поля!");
                 return;
@@ -69,16 +69,16 @@ namespace MusicAppFront.Views.Pages
                 var regData = new
                 {
                     Username = RegUsernameInput.Text,
-                    Email = RegEmailInput.Text, 
+                    Email = RegEmailInput.Text,
                     Password = RegPasswordInput.Password
                 };
 
-       
+
                 var response = await _client.PostAsJsonAsync("api/register/request", regData);
 
                 if (response.IsSuccessStatusCode)
                 {
-             
+
                     this.NavigationService?.Navigate(new EmailConfirmationPage(regData.Email));
                 }
                 else

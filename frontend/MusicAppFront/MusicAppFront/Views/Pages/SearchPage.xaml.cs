@@ -35,14 +35,14 @@ namespace MusicAppFront.Views.Pages
 
     public partial class SearchPage : Page
     {
-      
+
         private readonly MainWindow _mainWindow;
         private HttpClient _client = new HttpClient();
         private Button _lastPlayedButton;
         internal SearchResultDto.TrackDto2 _lastPlayedTrack;
         private testPlayer.NativePlayer _nativePlayer;
 
-   
+
         private bool _isDataLoading = false;
         public SearchPage(SearchResultDto results, MainWindow mainWindow, NativePlayer player)
         {
@@ -53,7 +53,7 @@ namespace MusicAppFront.Views.Pages
 
 
 
-     
+
             this.LayoutUpdated += (s, e) =>
             {
                 if (_lastPlayedTrack != null && _lastPlayedButton == null)
@@ -84,7 +84,7 @@ namespace MusicAppFront.Views.Pages
         }
 
 
-     
+
 
         public async void TrackRow_Click(object sender, RoutedEventArgs e)
         {
@@ -98,13 +98,13 @@ namespace MusicAppFront.Views.Pages
             var trackData = btn?.DataContext as SearchResultDto.TrackDto2;
             _mainWindow.isAlbumOpenAndActive = false;
 
-            if (trackData == null || btn == null) return; 
-            if (_isDataLoading) return; 
+            if (trackData == null || btn == null) return;
+            if (_isDataLoading) return;
 
             string artist = trackData.Author;
             string track = trackData.Title;
 
-     
+
             var currentPlaying = _nativePlayer._currentlyPlayingTrack;
 
             if (currentPlaying != null &&
@@ -116,7 +116,7 @@ namespace MusicAppFront.Views.Pages
                     _nativePlayer._mediaPlayer.Pause();
                     trackData.IsPlaying = false;
 
-                   
+
                     _mainWindow.GlobalPlayPauseBtn.Content = "\uE102"; // Иконка Play
                     _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(2, 0, 0, 0);
                 }
@@ -128,16 +128,16 @@ namespace MusicAppFront.Views.Pages
                     _mainWindow.GlobalPlayPauseBtn.Content = "\uE103"; // Иконка Pause
                     _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(0);
                 }
-                
+
                 return;
             }
 
-   
+
             try
             {
                 _isDataLoading = true;
 
-        
+
                 if (_lastPlayedTrack != null) _lastPlayedTrack.IsPlaying = false;
                 if (_lastPlayedButton != null) _lastPlayedButton.IsEnabled = true;
 
@@ -162,12 +162,12 @@ namespace MusicAppFront.Views.Pages
                         YtUrl = data[0],
                         Duration = duration,
                         IsResolved = false,
-                        ImageUrl = trackData.ImageUrl 
+                        ImageUrl = trackData.ImageUrl
                     };
 
                     _mainWindow.BottomTrackTitle.Text = "Резолв аудио...";
 
- 
+
                     trackToBePlayed.StreamUrl = await _nativePlayer.ResolveAudioUrlAsync(trackToBePlayed.YtUrl);
                     trackToBePlayed.IsResolved = true;
 
@@ -178,16 +178,16 @@ namespace MusicAppFront.Views.Pages
                         return;
                     }
 
-        
+
                     await _nativePlayer.PlayTrack(trackToBePlayed, addToHistory: true, clearForward: true);
 
-  
+
                     trackData.IsPlaying = true;
                     btn.IsEnabled = true;
 
                     _mainWindow.GlobalPlayPauseBtn.Content = "\uE103"; // Пауза
                     _mainWindow.GlobalPlayPauseBtn.Padding = new Thickness(0);
-                    
+
                     _lastPlayedTrack = trackData;
                     _lastPlayedButton = btn;
                 }

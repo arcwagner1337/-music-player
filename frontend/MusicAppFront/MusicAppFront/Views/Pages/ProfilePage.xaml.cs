@@ -50,16 +50,16 @@ namespace MusicAppFront.Views.Pages
 
                 await _client.PostAsync("api/logout", null);
             }
-            catch {  }
+            catch { }
 
-            
+
             AuthStorage.AuthStorage.Clear();
 
-     
+
             var loginWin = new Windows.LoginWindow();
             loginWin.Show();
 
-     
+
             Window.GetWindow(this)?.Close();
         }
 
@@ -70,7 +70,7 @@ namespace MusicAppFront.Views.Pages
                 string token = AuthStorage.AuthStorage.GetToken();
                 if (string.IsNullOrEmpty(token)) return;
 
-          
+
                 var request = new HttpRequestMessage(HttpMethod.Get, "api/user/me");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -81,7 +81,7 @@ namespace MusicAppFront.Views.Pages
                     var user = await response.Content.ReadFromJsonAsync<User>();
                     if (user != null)
                     {
-                        
+
                         UserName.Text = user.Username;
                         UserNameSmall.Text = user.Username;
                         UserEmail.Text = user.Email;
@@ -91,7 +91,7 @@ namespace MusicAppFront.Views.Pages
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
-                    
+
                     Logout_Click(null, null);
                 }
             }

@@ -37,18 +37,18 @@ namespace MusicAppFront.Views.Pages
 
             _mainWindow.BottomTrackTitle.Text = "Резолв аудио...";
 
-            
+
             track.StreamUrl = await _nativePlayer.ResolveAudioUrlAsync(track.YtUrl);
             track.IsResolved = true;
 
             if (string.IsNullOrEmpty(track.StreamUrl))
             {
                 MessageBox.Show("Не удалось получить аудиопоток. Все сервера yt-dlp недоступны.");
-     
+
                 return;
             }
 
-           
+
             await _nativePlayer.PlayTrack(track, addToHistory: true, clearForward: true);
         }
     }

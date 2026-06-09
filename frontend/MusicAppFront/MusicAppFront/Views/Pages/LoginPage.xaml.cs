@@ -25,7 +25,7 @@ namespace MusicAppFront.Views.Pages
 
     public partial class LoginPage : Page
     {
-       
+
         private static readonly CookieContainer _cookieContainer = new CookieContainer();
         private static readonly HttpClient _client = new HttpClient(new HttpClientHandler
 
@@ -93,7 +93,7 @@ namespace MusicAppFront.Views.Pages
                     var data = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     if (data.ContainsKey("token"))
                     {
-                        AuthStorage.AuthStorage.SaveToken(data["token"]); 
+                        AuthStorage.AuthStorage.SaveToken(data["token"]);
                     }
 
                     mainWindow.Show();
