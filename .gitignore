@@ -15,3 +15,6 @@ appsettings.json
 
 .env
 /.vs
+
+logs/
+*.log

@@ -18,17 +18,20 @@ namespace backendxd.Controllers
         private readonly MusicService2 _musicService;
         private readonly YoutubeClient _yt = new YoutubeClient();
         private readonly AppDbContext _context;
+        private readonly ILogger<MusicController> _logger;
 
-        public MusicController(MusicService2 musicService, AppDbContext context)
+        public MusicController(MusicService2 musicService, AppDbContext context, ILogger<MusicController> logger)
         {
             _musicService = musicService;
             _context = context;
+            _logger = logger;
         }
 
 
         [HttpGet("get-url")]
         public async Task<string> GetUrl(string artist, string track)
         {
+            _logger.LogInformation("Запрос на получение прямой ссылки: {Artist} - {Track}", artist, track);
             var ytTrack = await _musicService.SearchOnYouTubeAsync(artist, track);
 
             return await _musicService.GetCachedDirectUrlAsync(ytTrack!.Url);
@@ -42,8 +45,14 @@ namespace backendxd.Controllers
 
         public async Task<List<string>> GetStream(string artist, string track)
         {
+            _logger.LogInformation("Запрос потока для трека: {Artist} - {Track}", artist, track);
             var ytTrackdata = await _musicService.SearchOnYouTubeAsync3(artist, track);
-            if (ytTrackdata == null) { Response.StatusCode = 404; return [""]; }
+            if (ytTrackdata == null)
+            {
+                _logger.LogWarning("Поток для трека {Artist} - {Track} не найден (404)", artist, track);
+                Response.StatusCode = 404;
+                return [""];
+            }
 
             //return ytTrackdata;
             return ytTrackdata.Where(x => x != null).Cast<string>().ToList();
@@ -57,31 +66,42 @@ namespace backendxd.Controllers
         [HttpPost("toggle")]
         public async Task<IActionResult> Toggle([FromBody] FavoriteTrackDto req)
         {
-
-            var existing = await _context.FavoriteTracks
+            _logger.LogInformation("Пользователь {User} переключает статус 'Избранное' для трека: {Artist} - {Title}", req.UserName, req.Author, req.Title);
+            try
+            {
+                var existing = await _context.FavoriteTracks
                 .FirstOrDefaultAsync(f => f.Username == req.UserName
                                        && f.Title == req.Title
                                        && f.Author == req.Author);
 
-            if (existing != null)
-            {
-
-                _context.FavoriteTracks.Remove(existing);
-            }
-            else
-            {
-
-                _context.FavoriteTracks.Add(new FavoriteTrack
+                if (existing != null)
                 {
-                    Username = req.UserName,
-                    Title = req.Title,
-                    Author = req.Author,
-                    ImageUrl = req.ImageUrl,
-                });
-            }
 
-            await _context.SaveChangesAsync();
-            return Ok(new { isFavorite = existing == null });
+                    _context.FavoriteTracks.Remove(existing);
+                    _logger.LogInformation("Трек {Artist} - {Title} удален из избранного у пользователя {User}", req.Author, req.Title, req.UserName);
+                }
+                else
+                {
+
+                    _context.FavoriteTracks.Add(new FavoriteTrack
+                    {
+                        Username = req.UserName,
+                        Title = req.Title,
+                        Author = req.Author,
+                        ImageUrl = req.ImageUrl,
+                    });
+                    _logger.LogInformation("Трек {Artist} - {Title} добавлен в избранное пользователю {User}", req.Author, req.Title, req.UserName);
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { isFavorite = existing == null });
+            }
+            catch (Exception ex)
+            {
+                // Запись критической ошибки СУБД со Stack Trace для отчета
+                _logger.LogCritical(ex, "Критическая ошибка при работе с Neon DB в методе Toggle для пользователя {User}", req.UserName);
+                return StatusCode(500, "Внутренняя ошибка при работе с базой данных");
+            }
         }
 
 
@@ -91,6 +111,7 @@ namespace backendxd.Controllers
         public async Task<IActionResult> getName()
         {
             var username = GetUsername();
+            _logger.LogInformation("Запрос имени пользователя из JWT. Обнаружен: {Username}", username);
             await Task.CompletedTask;
             return Ok(username);
         }
@@ -102,13 +123,27 @@ namespace backendxd.Controllers
         public async Task<IActionResult> GetFavorites()
         {
             var username = GetUsername();
-            if (string.IsNullOrEmpty(username)) return Unauthorized();
+            _logger.LogInformation("Запрос списка избранного для пользователя: {Username}", username);
+            //if (string.IsNullOrEmpty(username)) return Unauthorized();
+            if (string.IsNullOrEmpty(username))
+            {
+                _logger.LogWarning("Попытка несанкционированного доступа к списку избранного без токена");
+                return Unauthorized();
+            }
 
-            var list = await _context.FavoriteTracks
-                .Where(f => f.Username == username)
-                .ToListAsync();
+            try
+            {
+                var list = await _context.FavoriteTracks
+                    .Where(f => f.Username == username)
+                    .ToListAsync();
 
-            return Ok(list);
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, "Ошибка получения списка избранного из базы данных для {Username}", username);
+                return StatusCode(500, "Ошибка СУБД");
+            }
         }
 
 
@@ -120,6 +155,7 @@ namespace backendxd.Controllers
         [HttpPost("GetNextRecommended")]
         public async Task<IActionResult> GetNextRecommended2([FromBody] GetNextRecommendedRequest request)
         {
+            _logger.LogInformation("Запрос рекомендаций для: {Artist} - {Track}", request.Artist, request.Track);
             var excludedList = request.Exclude?.Select(x => x.ToLower()).ToList() ?? new List<string>();
 
 
@@ -128,16 +164,22 @@ namespace backendxd.Controllers
             if (recommendedBatch.Count == 0)
             {
                 Console.WriteLine($"[server] ⚠️ Фолбэк по артисту: {request.Artist}");
+                _logger.LogWarning("Похожие треки не найдены. Фолбэк по артисту: {Artist}", request.Artist);
                 recommendedBatch = await _musicService.GetTopTracksByArtistBatchAsync(request.Artist ?? "", excludedList, 15);
             }
 
             if (recommendedBatch.Count == 0)
             {
+                _logger.LogWarning("Треки артиста не найдены. Глобальный фолбэк (Charts)");
                 Console.WriteLine("[server] ⚠️ Глобальный фолбэк (Charts)");
                 recommendedBatch = await _musicService.GetGlobalTrendingBatchAsync(excludedList, 15);
             }
 
-            if (recommendedBatch.Count == 0) return NotFound();
+            if (recommendedBatch.Count == 0)
+            {
+                _logger.LogError("Все уровни рекомендаций вернули пустой список для артиста {Artist}", request.Artist);
+                return NotFound();
+            }
 
 
             var youtubeTasks = recommendedBatch.Select(async rec =>
@@ -157,7 +199,10 @@ namespace backendxd.Controllers
                         };
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Не удалось зарезолвить YouTube-информацию для рекомендованного трека {Artist} - {Title}", rec.Author, rec.Title);
+                }
                 return null;
             });
 
@@ -191,8 +236,11 @@ namespace backendxd.Controllers
 
             if (string.IsNullOrWhiteSpace(query))
             {
+                _logger.LogWarning("Передан пустой поисковый запрос");
                 return BadRequest("Search query cannot be empty");
             }
+
+            _logger.LogInformation("Выполняется умный поиск по запросу: '{Query}'", query);
 
             try
             {
@@ -202,6 +250,7 @@ namespace backendxd.Controllers
 
                 if (results.Artists.Count == 0 && results.Tracks.Count == 0)
                 {
+                    _logger.LogWarning("По запросу '{Query}' ничего не найдено", query);
                     return NotFound("No artists or tracks found for this query");
                 }
 
@@ -209,7 +258,7 @@ namespace backendxd.Controllers
             }
             catch (Exception ex)
             {
-
+                _logger.LogError(ex, "Ошибка выполнения поиска по запросу '{Query}'", query);
                 Console.WriteLine($"Search Error: {ex.Message}");
                 return StatusCode(500, "Internal server error during search");
             }
@@ -218,6 +267,7 @@ namespace backendxd.Controllers
         [HttpGet("album/{id}")]
         public async Task<ActionResult<List<TrackDto2>>> GetAlbumTracks(long id)
         {
+            _logger.LogInformation("Запрос треков альбома ID: {AlbumId}", id);
             var tracks = await _musicService.GetAlbumTracksAsync(id);
 
             if (tracks == null || !tracks.Any())
@@ -229,6 +279,7 @@ namespace backendxd.Controllers
         [HttpGet("artist/{id}/albums")]
         public async Task<ActionResult<List<AlbumDto>>> GetArtistAlbums(long id)
         {
+            _logger.LogInformation("Запрос альбомов артиста ID: {ArtistId}", id);
             var albums = await _musicService.GetArtistAlbumsAsync(id);
 
             if (albums == null || !albums.Any())
@@ -245,77 +296,97 @@ namespace backendxd.Controllers
         [HttpPost("create-playlist")]
         public async Task<IActionResult> CreatePlaylist([FromBody] CreatePlaylistDto dto)
         {
+            _logger.LogInformation("Запрос на создание плейлиста '{Playlist}' для пользователя {User}", dto.PlaylistName, dto.Username);
+
             if (string.IsNullOrWhiteSpace(dto.PlaylistName) || string.IsNullOrWhiteSpace(dto.Username))
             {
                 return BadRequest(new { message = "Название плейлиста и имя пользователя обязательны" });
             }
+            try
+            {
 
-
-            bool exists = await _context.PlaylistsTracks.AnyAsync(p =>
+                bool exists = await _context.PlaylistsTracks.AnyAsync(p =>
                 p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
 
-            if (exists)
-            {
-                return BadRequest(new { message = "Плейлист с таким названием уже существует!" });
+                if (exists)
+                {
+                    _logger.LogWarning("Плейлист '{Playlist}' у пользователя {User} уже существует", dto.PlaylistName, dto.Username);
+                    return BadRequest(new { message = "Плейлист с таким названием уже существует!" });
+                }
+
+                var newPlaylistRow = new PlaylistTrack
+                {
+                    PlaylistName = dto.PlaylistName,
+                    Username = dto.Username,
+                    TrackTitle = null,
+                    TrackArtist = null,
+                    ImageUrl = null
+                };
+
+                _context.PlaylistsTracks.Add(newPlaylistRow);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Плейлист успешно создан!" });
             }
-
-            var newPlaylistRow = new PlaylistTrack
+            catch (Exception ex)
             {
-                PlaylistName = dto.PlaylistName,
-                Username = dto.Username,
-                TrackTitle = null,
-                TrackArtist = null,
-                ImageUrl = null
-            };
-
-            _context.PlaylistsTracks.Add(newPlaylistRow);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Плейлист успешно создан!" });
+                _logger.LogCritical(ex, "Критический сбой СУБД при создании плейлиста '{Playlist}' для {User}", dto.PlaylistName, dto.Username);
+                return StatusCode(500, "Ошибка базы данных");
+            }
         }
 
 
         [HttpPost("add-track-to-playlist")]
         public async Task<IActionResult> AddTrackToPlaylist([FromBody] AddTrackDto dto)
         {
+            _logger.LogInformation("Добавление трека '{Artist} - {Title}' в плейлист '{Playlist}' пользователя {User}", dto.TrackArtist, dto.TrackTitle, dto.PlaylistName, dto.Username);
 
-            var playlistExists = await _context.PlaylistsTracks.AnyAsync(p =>
+
+            try
+            {
+                var playlistExists = await _context.PlaylistsTracks.AnyAsync(p =>
                 p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
 
-            if (!playlistExists)
-            {
-                return NotFound(new { message = "Плейлист не найден" });
-            }
-
-
-            var emptyRow = await _context.PlaylistsTracks.FirstOrDefaultAsync(p =>
-                p.Username == dto.Username &&
-                p.PlaylistName == dto.PlaylistName &&
-                p.TrackTitle == null);
-
-            if (emptyRow != null)
-            {
-
-                emptyRow.TrackTitle = dto.TrackTitle;
-                emptyRow.TrackArtist = dto.TrackArtist;
-                emptyRow.ImageUrl = dto.ImageUrl;
-            }
-            else
-            {
-
-                var newTrackRow = new PlaylistTrack
+                if (!playlistExists)
                 {
-                    PlaylistName = dto.PlaylistName,
-                    Username = dto.Username,
-                    TrackTitle = dto.TrackTitle,
-                    TrackArtist = dto.TrackArtist,
-                    ImageUrl = dto.ImageUrl
-                };
-                _context.PlaylistsTracks.Add(newTrackRow);
-            }
+                    return NotFound(new { message = "Плейлист не найден" });
+                }
 
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Трек добавлен в плейлист!" });
+
+                var emptyRow = await _context.PlaylistsTracks.FirstOrDefaultAsync(p =>
+                    p.Username == dto.Username &&
+                    p.PlaylistName == dto.PlaylistName &&
+                    p.TrackTitle == null);
+
+                if (emptyRow != null)
+                {
+
+                    emptyRow.TrackTitle = dto.TrackTitle;
+                    emptyRow.TrackArtist = dto.TrackArtist;
+                    emptyRow.ImageUrl = dto.ImageUrl;
+                }
+                else
+                {
+
+                    var newTrackRow = new PlaylistTrack
+                    {
+                        PlaylistName = dto.PlaylistName,
+                        Username = dto.Username,
+                        TrackTitle = dto.TrackTitle,
+                        TrackArtist = dto.TrackArtist,
+                        ImageUrl = dto.ImageUrl
+                    };
+                    _context.PlaylistsTracks.Add(newTrackRow);
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Трек добавлен в плейлист!" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, "Ошибка СУБД при добавлении трека в плейлист '{Playlist}'", dto.PlaylistName);
+                return StatusCode(500, "Ошибка базы данных");
+            }
         }
 
 
@@ -364,6 +435,9 @@ namespace backendxd.Controllers
         [HttpPost("remove-track")]
         public async Task<IActionResult> RemoveTrackFromPlaylist([FromBody] RemoveTrackByFieldsDto dto)
         {
+
+            _logger.LogInformation("Удаление трека '{Title}' из плейлиста '{Playlist}' пользователя {User}", dto.TrackTitle, dto.PlaylistName, dto.Username);
+
             if (string.IsNullOrWhiteSpace(dto.Username) ||
                 string.IsNullOrWhiteSpace(dto.PlaylistName) ||
                 string.IsNullOrWhiteSpace(dto.TrackTitle))
@@ -371,56 +445,74 @@ namespace backendxd.Controllers
                 return BadRequest(new { message = "Не все поля заполнены" });
             }
 
-
-            var trackRow = await _context.PlaylistsTracks.FirstOrDefaultAsync(p =>
+            try
+            {
+                var trackRow = await _context.PlaylistsTracks.FirstOrDefaultAsync(p =>
                 p.Username == dto.Username &&
                 p.PlaylistName == dto.PlaylistName &&
                 p.TrackTitle == dto.TrackTitle &&
                 p.TrackArtist == dto.TrackArtist);
 
-            if (trackRow == null)
-                return NotFound(new { message = "Такой трек в плейлисте не найден" });
+                if (trackRow == null)
+                    return NotFound(new { message = "Такой трек в плейлисте не найден" });
 
 
-            var totalRows = await _context.PlaylistsTracks.CountAsync(p =>
-                p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
+                var totalRows = await _context.PlaylistsTracks.CountAsync(p =>
+                    p.Username == dto.Username && p.PlaylistName == dto.PlaylistName);
 
-            if (totalRows == 1)
-            {
+                if (totalRows == 1)
+                {
 
-                trackRow.TrackTitle = null;
-                trackRow.TrackArtist = null;
-                trackRow.ImageUrl = null;
+                    trackRow.TrackTitle = null;
+                    trackRow.TrackArtist = null;
+                    trackRow.ImageUrl = null;
+                }
+                else
+                {
+
+                    _context.PlaylistsTracks.Remove(trackRow);
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Трек успешно удален из плейлиста" });
             }
-            else
+            catch (Exception ex)
             {
-
-                _context.PlaylistsTracks.Remove(trackRow);
+                _logger.LogCritical(ex, "Ошибка СУБД при удалении трека из плейлиста '{Playlist}'", dto.PlaylistName);
+                return StatusCode(500, "Ошибка базы данных");
             }
-
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Трек успешно удален из плейлиста" });
         }
 
         [HttpPost("delete-playlist")]
         public async Task<IActionResult> DeletePlaylist([FromBody] DeletePlaylistDto dto)
         {
+            _logger.LogInformation("Запрос на ПОЛНОЕ УДАЛЕНИЕ плейлиста '{Playlist}' пользователя {User}", dto.PlaylistName, dto.Username);
+
             if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.PlaylistName))
                 return BadRequest(new { message = "Не все поля заполнены" });
 
-            var playlistRows = await _context.PlaylistsTracks
+
+            try
+            {
+                var playlistRows = await _context.PlaylistsTracks
                 .Where(p => p.Username == dto.Username && p.PlaylistName == dto.PlaylistName)
                 .ToListAsync();
 
-            if (playlistRows.Count == 0)
-            {
-                return NotFound(new { message = "Плейлист не найден" });
+                if (playlistRows.Count == 0)
+                {
+                    return NotFound(new { message = "Плейлист не найден" });
+                }
+
+                _context.PlaylistsTracks.RemoveRange(playlistRows);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = $"Плейлист \"{dto.PlaylistName}\" полностью удален" });
             }
-
-            _context.PlaylistsTracks.RemoveRange(playlistRows);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = $"Плейлист \"{dto.PlaylistName}\" полностью удален" });
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, "Ошибка СУБД при удалении плейлиста '{Playlist}' для пользователя {User}", dto.PlaylistName, dto.Username);
+                return StatusCode(500, "Ошибка базы данных");
+            }
         }
 
 
